@@ -1,0 +1,7 @@
+<script type="text/javascript">
+WebAssembly.instantiateStreaming(fetch("build/plugin.wasm"), importObject).then(
+  (results) => {
+  	console.log(results);
+  }
+);
+</script>
