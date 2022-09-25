@@ -25,11 +25,11 @@ static OfxStatus load() {
 		NULL == parameterSuite) {
         return kOfxStatErrMissingHostFeature;
     }
-    return kOfxStatReplyDefault;
+    return kOfxStatOK;
 }
 
 static OfxStatus unload() {
-    return kOfxStatReplyDefault;
+    return kOfxStatOK;
 }
 
 static OfxStatus describe(OfxMeshEffectHandle descriptor) {
@@ -37,11 +37,11 @@ static OfxStatus describe(OfxMeshEffectHandle descriptor) {
 	OfxPropertySetHandle outputProperties;
 	meshEffectSuite->inputDefine(descriptor, kOfxMeshMainOutput, &output, &outputProperties);
 	propertySuite->propSetString(outputProperties, kOfxPropLabel, 0, "Output");
-    return kOfxStatReplyDefault;
+    return kOfxStatOK;
 }
 
 static OfxStatus createInstance(OfxMeshEffectHandle instance) {
-    return kOfxStatReplyDefault;
+    return kOfxStatOK;
 }
 
 static OfxStatus destroyInstance(OfxMeshEffectHandle instance) {

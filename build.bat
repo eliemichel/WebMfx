@@ -1,6 +1,28 @@
-call emcc src/plugin.c -o build/plugin.wasm -sSIDE_MODULE -sEXPORTED_RUNTIME_METHODS=cwrap -I src/openmfx
-call emcc src/plugin2.c -o build/plugin2.wasm -sSIDE_MODULE
-call emcc src/main.c -o build/index.html -sMAIN_MODULE=2 -sEXPORTED_RUNTIME_METHODS=cwrap,FS --shell-file src/html_templates/index.html -I src/openmfx
-call emcc src/empty.c -o build/main.html -sMAIN_MODULE=2 -sEXPORTED_RUNTIME_METHODS=cwrap
+call emcc src/plugin.c ^
+	-sSIDE_MODULE ^
+	-sEXPORTED_RUNTIME_METHODS=cwrap ^
+	-I src/openmfx ^
+	-g -gsource-map ^
+	--source-map-base http://127.0.0.1:8888/build/ ^
+	-o build/plugin.wasm
+
+call emcc src/plugin2.c ^
+	-sSIDE_MODULE ^
+	-o build/plugin2.wasm
+
+call emcc src/main.c ^
+	src/openmfx-sdk/c/common/common.c ^
+	-sMAIN_MODULE ^
+	-sEXPORTED_RUNTIME_METHODS=cwrap,FS ^
+	--shell-file src/html_templates/index.html ^
+	-I src/openmfx ^
+	-g -gsource-map ^
+	--source-map-base http://127.0.0.1:8888/build/ ^
+	-o build/index.html
+
+call emcc src/empty.c ^
+	-sMAIN_MODULE=2 ^
+	-sEXPORTED_RUNTIME_METHODS=cwrap ^
+	-o build/main.html
 
 REM copy src\test.html build\test.html
