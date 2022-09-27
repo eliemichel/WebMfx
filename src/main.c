@@ -21,14 +21,34 @@
 #define EMSCRIPTEN_KEEPALIVE
 #endif
 
+/*****************************************************************************/
+/* Data Structures (and their ctor/dtor/copy) */
+
 typedef enum OfxPropertySetType {
   PROPSET_UNKNOWN,
   PROPSET_INPUT,
+  PROPSET_PARAM,
 } OfxPropertySetType;
 
 typedef struct OfxPropertySetStruct {
   OfxPropertySetType type;
 } OfxPropertySetStruct;
+
+typedef struct OfxParamPropertySet {
+  OfxPropertySetStruct *header;
+  char label[256];
+} OfxParamPropertySet;
+
+typedef struct OfxParamStruct {
+  int is_valid;
+  char name[64];
+  char type[64];
+  OfxParamPropertySet properties;
+} OfxParamStruct;
+
+typedef struct OfxParamSetStruct {
+  OfxParamStruct entries[16];
+} OfxParamSetStruct;
 
 typedef struct OfxMeshInputPropertySet {
   OfxPropertySetStruct *header;
@@ -44,6 +64,7 @@ typedef struct OfxMeshInputStruct {
 typedef struct OfxMeshEffectStruct {
   int is_valid;
   OfxMeshInputStruct inputs[16];
+  OfxParamSetStruct parameters;
 } OfxMeshEffectStruct;
 
 void meshInputPropertySetCopy(OfxMeshInputPropertySet *dst, const OfxMeshInputPropertySet *src) {
@@ -66,6 +87,15 @@ void propertySetInit(OfxPropertySetHandle propertySet, OfxPropertySetType type) 
   propertySet->type = type;
 }
 
+void parameterSetInit(OfxParamSetHandle parameterSet) {
+  parameterSet->entries[0].is_valid = 0;
+}
+
+void paramInit(OfxParamHandle param) {
+  param->is_valid = 1;
+  propertySetInit((OfxPropertySetHandle)&param->properties, PROPSET_PARAM);
+}
+
 void meshInputInit(OfxMeshInputHandle input) {
   input->is_valid = 1;
   input->name[0] = '\0';
@@ -80,6 +110,7 @@ void meshInputCopy(OfxMeshInputHandle dst, const OfxMeshInputHandle src) {
 }
 
 void meshEffectInit(OfxMeshEffectHandle meshEffect) {
+  parameterSetInit(&meshEffect->parameters);
   meshEffect->inputs[0].is_valid = 0;
   meshEffect->is_valid = 1;
 }
@@ -97,6 +128,16 @@ void meshEffectCopy(OfxMeshEffectHandle dst, const OfxMeshEffectHandle src) {
   for (int input_index = 0; src->inputs[input_index].is_valid; ++input_index) {
     meshInputCopy(&dst->inputs[input_index], &src->inputs[input_index]);
   }
+}
+
+/*****************************************************************************/
+/* Mesh Effect Suite */
+
+OfxStatus getParamSet(OfxMeshEffectHandle meshEffect,
+                      OfxParamSetHandle *paramSet)
+{
+  *paramSet = &meshEffect->parameters;
+  return kOfxStatOK;
 }
 
 OfxStatus inputDefine(OfxMeshEffectHandle meshEffect,
@@ -122,7 +163,7 @@ OfxStatus inputDefine(OfxMeshEffectHandle meshEffect,
 
 static const OfxMeshEffectSuiteV1 meshEffectSuiteV1 = {
   NULL, // OfxStatus (*getPropertySet)(OfxMeshEffectHandle meshEffect,
-  NULL, // OfxStatus (*getParamSet)(OfxMeshEffectHandle meshEffect,
+  getParamSet, // OfxStatus (*getParamSet)(OfxMeshEffectHandle meshEffect,
   inputDefine, // OfxStatus (*inputDefine)(OfxMeshEffectHandle meshEffect,
   NULL, // OfxStatus (*inputGetHandle)(OfxMeshEffectHandle meshEffect,
   NULL, // OfxStatus (*inputGetPropertySet)(OfxMeshInputHandle input,
@@ -135,6 +176,9 @@ static const OfxMeshEffectSuiteV1 meshEffectSuiteV1 = {
   NULL, // OfxStatus (*meshAlloc)(OfxMeshHandle meshHandle);
   NULL, // int (*abort)(OfxMeshEffectHandle meshEffect);
 };
+
+/*****************************************************************************/
+/* Property Suite */
 
 OfxStatus propSetString(OfxPropertySetHandle properties,
                         const char *property,
@@ -185,8 +229,32 @@ static const OfxPropertySuiteV1 propertySuiteV1 = {
   NULL, // OfxStatus (*propGetDimension)  (OfxPropertySetHandle properties, const char *property, int *count);
 };
 
+/*****************************************************************************/
+/* Parameter Suite */
+
+OfxStatus paramDefine(OfxParamSetHandle paramSet,
+                      const char *paramType,
+                      const char *name,
+                      OfxPropertySetHandle *propertySet)
+{
+  int param_index = 0;
+  while (paramSet->entries[param_index].is_valid) ++param_index;
+  assert(param_index < 16);
+  OfxParamHandle param = &paramSet->entries[param_index];
+
+  paramInit(param);
+  strncpy(param->type, paramType, 64);
+  strncpy(param->name, name, 64);
+
+  if (NULL != propertySet) {
+    *propertySet = (OfxPropertySetHandle)&param->properties;
+  }
+
+  return kOfxStatOK;
+}
+
 static const OfxParameterSuiteV1 parameterSuiteV1 = {
-  NULL, // OfxStatus (*paramDefine)(OfxParamSetHandle paramSet, const char *paramType, const char *name, OfxPropertySetHandle *propertySet);
+  paramDefine, // OfxStatus (*paramDefine)(OfxParamSetHandle paramSet, const char *paramType, const char *name, OfxPropertySetHandle *propertySet);
   NULL, // OfxStatus (*paramGetHandle)(OfxParamSetHandle paramSet, const char *name, OfxParamHandle *param, OfxPropertySetHandle *propertySet);
   NULL, // OfxStatus (*paramSetGetPropertySet)(OfxParamSetHandle paramSet, OfxPropertySetHandle *propHandle);
   NULL, // OfxStatus (*paramGetPropertySet)(OfxParamHandle param, OfxPropertySetHandle *propHandle);
@@ -205,6 +273,9 @@ static const OfxParameterSuiteV1 parameterSuiteV1 = {
   NULL, // OfxStatus (*paramEditBegin)(OfxParamSetHandle paramSet, const char *name); 
   NULL, // OfxStatus (*paramEditEnd)(OfxParamSetHandle paramSet);
 };
+
+/*****************************************************************************/
+/* Master Host */
 
 const void* fetchSuite(OfxPropertySetHandle host, const char *suiteName, int suiteVersion) {
   printf("[host] fetchSuite(host, %s, %d)\n", suiteName, suiteVersion);
@@ -228,6 +299,9 @@ const void* fetchSuite(OfxPropertySetHandle host, const char *suiteName, int sui
   }
   return NULL;
 }
+
+/*****************************************************************************/
+/* Test */
 
 EMSCRIPTEN_KEEPALIVE
 int test(int argc, char** argv) {
@@ -312,13 +386,29 @@ int test(int argc, char** argv) {
   printf("(ActionDescribe)\n");
   MFX_CHECK(plugin->mainEntry(kOfxActionDescribe, &descriptor, NULL, NULL));
 
+  printf("Parameters:\n");
+  for (int i = 0 ; descriptor.parameters.entries[i].is_valid ; ++i) {
+    const OfxParamHandle param = &descriptor.parameters.entries[i];
+    printf(" - %s (%s)\n", param->name, param->type);
+  }
+  printf("Inputs:\n");
+  for (int i = 0 ; descriptor.inputs[i].is_valid ; ++i) {
+    const OfxMeshInputHandle input = &descriptor.inputs[i];
+    printf(" - %s (%s)\n", input->properties.label, input->name);
+  }
+
   OfxMeshEffectStruct instance;
   meshEffectCopy(&instance, &descriptor);
   printf("(CreateInstance)\n");
   MFX_CHECK(plugin->mainEntry(kOfxActionCreateInstance, &instance, NULL, NULL));
 
+  printf("Setting inputs and parameters\n");
+
   printf("(Cook)\n");
-  MFX_CHECK(plugin->mainEntry(kOfxActionCook, &instance, NULL, NULL));
+  MFX_CHECK(plugin->mainEntry(kOfxMeshEffectActionCook, &instance, NULL, NULL));
+
+  meshEffectDestroy(&instance);
+  meshEffectDestroy(&descriptor);
 
   int status = dlclose(handle);
   if (status != 0) {

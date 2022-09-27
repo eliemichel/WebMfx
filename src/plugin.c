@@ -37,6 +37,12 @@ static OfxStatus describe(OfxMeshEffectHandle descriptor) {
 	OfxPropertySetHandle outputProperties;
 	meshEffectSuite->inputDefine(descriptor, kOfxMeshMainOutput, &output, &outputProperties);
 	propertySuite->propSetString(outputProperties, kOfxPropLabel, 0, "Output");
+
+    OfxParamSetHandle parameters;
+    meshEffectSuite->getParamSet(descriptor, &parameters);
+    parameterSuite->paramDefine(parameters, kOfxParamTypeDouble, "width", NULL);
+    parameterSuite->paramDefine(parameters, kOfxParamTypeDouble, "height", NULL);
+    parameterSuite->paramDefine(parameters, kOfxParamTypeDouble, "depth", NULL);
     return kOfxStatOK;
 }
 
