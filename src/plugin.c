@@ -72,7 +72,6 @@ static OfxStatus cook(OfxMeshEffectHandle instance) {
 
     meshEffectSuite->meshAlloc(output_mesh);
 
-    /*
     OfxPropertySetHandle
         output_point_position_attrib,
         output_corner_point_attrib,
@@ -83,7 +82,6 @@ static OfxStatus cook(OfxMeshEffectHandle instance) {
                                       kOfxMeshAttribCornerPoint, &output_corner_point_attrib);
     meshEffectSuite->meshGetAttribute(output_mesh, kOfxMeshAttribFace,
                                       kOfxMeshAttribFaceSize, &output_face_size_attrib);
-    */
 
     meshEffectSuite->inputReleaseMesh(output_mesh);
     return kOfxStatReplyDefault;

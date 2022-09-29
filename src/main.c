@@ -29,6 +29,7 @@ typedef enum OfxPropertySetType {
   PROPSET_INPUT,
   PROPSET_PARAM,
   PROPSET_MESH,
+  PROPSET_ATTRIBUTE,
 } OfxPropertySetType;
 
 typedef struct OfxPropertySetStruct {
@@ -58,7 +59,18 @@ typedef struct OfxMeshPropertySet {
   int face_count;
 } OfxMeshPropertySet;
 
+typedef struct OfxMeshAttributePropertySet {
+  OfxPropertySetStruct *header;
+  int is_valid;
+  char name[64];
+  char attachment[64];
+  int componentCount;
+  char type[64];
+  char semantic[64];
+} OfxMeshAttributePropertySet;
+
 typedef struct OfxMeshStruct {
+  OfxMeshAttributePropertySet attributes[32];
   OfxMeshPropertySet properties;
 } OfxMeshStruct;
 
@@ -101,7 +113,9 @@ void propertySetInit(OfxPropertySetHandle propertySet, OfxPropertySetType type) 
 }
 
 void parameterSetInit(OfxParamSetHandle parameterSet) {
-  parameterSet->entries[0].is_valid = 0;
+  for (int i = 0 ; i < 16 ; ++i) {
+    parameterSet->entries[1].is_valid = 0;
+  }
 }
 
 void paramInit(OfxParamHandle param) {
@@ -111,6 +125,9 @@ void paramInit(OfxParamHandle param) {
 
 void meshInit(OfxMeshHandle mesh) {
   propertySetInit((OfxPropertySetHandle)&mesh->properties, PROPSET_MESH);
+  for (int i = 0 ; i < 32 ; ++i) {
+    propertySetInit((OfxPropertySetHandle)&mesh->attributes[i], PROPSET_ATTRIBUTE);
+  }
 }
 
 void meshInputInit(OfxMeshInputHandle input) {
@@ -129,12 +146,16 @@ void meshInputCopy(OfxMeshInputHandle dst, const OfxMeshInputHandle src) {
 
 void meshEffectInit(OfxMeshEffectHandle meshEffect) {
   parameterSetInit(&meshEffect->parameters);
-  meshEffect->inputs[0].is_valid = 0;
+  for (int i = 0 ; i < 16 ; ++i) {
+    meshEffect->inputs[1].is_valid = 0;
+  }
   meshEffect->is_valid = 1;
 }
 
 void meshEffectDestroy(OfxMeshEffectHandle meshEffect) {
-  meshEffect->inputs[0].is_valid = 0;
+  for (int i = 0 ; i < 16 ; ++i) {
+    meshEffect->inputs[i].is_valid = 0;
+  }
   meshEffect->is_valid = 0;
 }
 
@@ -150,6 +171,8 @@ void meshEffectCopy(OfxMeshEffectHandle dst, const OfxMeshEffectHandle src) {
 
 /*****************************************************************************/
 /* Mesh Effect Suite */
+
+OfxStatus defaultAttributesDefine(OfxMeshHandle mesh);
 
 OfxStatus getParamSet(OfxMeshEffectHandle meshEffect,
                       OfxParamSetHandle *paramSet)
@@ -171,7 +194,7 @@ OfxStatus inputDefine(OfxMeshEffectHandle meshEffect,
 
   int input_index = 0;
   while (meshEffect->inputs[input_index].is_valid) ++input_index;
-  assert(input_index < 16);
+  if (input_index == 16) return kOfxStatErrMemory;
   OfxMeshInputHandle new_input = &meshEffect->inputs[input_index];
 
   meshInputInit(new_input);
@@ -192,8 +215,8 @@ OfxStatus inputGetHandle(OfxMeshEffectHandle meshEffect,
     return kOfxStatErrBadHandle;
   }
 
-  for (int input_index = 0 ; meshEffect->inputs[input_index].is_valid ; ++input_index) {
-    OfxMeshInputHandle input = &meshEffect->inputs[input_index];
+  for (int i = 0 ; meshEffect->inputs[i].is_valid && i < 16 ; ++i) {
+    OfxMeshInputHandle input = &meshEffect->inputs[i];
     if (0 == strncmp(name, input->name, 256)) {
       *inputHandle = input;
       if (NULL != propertySet) {
@@ -202,6 +225,7 @@ OfxStatus inputGetHandle(OfxMeshEffectHandle meshEffect,
       return kOfxStatOK;
     }
   }
+
   return kOfxStatErrBadIndex;
 }
 
@@ -218,6 +242,10 @@ OfxStatus inputGetMesh(OfxMeshInputHandle input,
     return kOfxStatErrMissingHostFeature;
   }
 
+  if (0 == strncmp(input->name, kOfxMeshMainOutput, 256)) {
+    MFX_ENSURE(defaultAttributesDefine(&input->mesh));
+  }
+
   *meshHandle = &input->mesh;
   if (NULL != propertySet) {
     *propertySet = (OfxPropertySetHandle)&input->mesh.properties;
@@ -232,9 +260,70 @@ OfxStatus inputReleaseMesh(OfxMeshHandle meshHandle)
   return kOfxStatOK;
 }
 
+OfxStatus meshGetAttribute(OfxMeshHandle meshHandle,
+                           const char *attachment,
+                           const char *name,
+                           OfxPropertySetHandle *attributeHandle)
+{
+  printf("[host] meshGetAttribute(mesh %p, %s, %s)\n", meshHandle, attachment, name);
+  for (int i = 0 ; meshHandle->attributes[i].is_valid && i < 32 ; ++i) {
+    OfxMeshAttributePropertySet* attribute = &meshHandle->attributes[i];
+    if (0 == strncmp(attachment, attribute->attachment, 64) &&
+        0 == strncmp(name, attribute->name, 64))
+    {
+      *attributeHandle = (OfxPropertySetHandle)attribute;
+      return kOfxStatOK;
+    }
+  }
+
+  return kOfxStatErrBadIndex;
+}
+
+OfxStatus attributeDefine(OfxMeshHandle meshHandle,
+                          const char *attachment,
+                          const char *name,
+                          int componentCount,
+                          const char *type,
+                          const char *semantic,
+                          OfxPropertySetHandle *attributeHandle)
+{
+  printf("[host] attributeDefine(mesh %p, %s, %s, %d, %s, %s)\n", meshHandle, attachment, name, componentCount, type, semantic);
+
+  // Check for duplicates
+  OfxPropertySetHandle existingAttribute = NULL;
+  if (kOfxStatErrBadIndex != meshGetAttribute(meshHandle, attachment, name, &existingAttribute)) {
+    return kOfxStatErrExists;
+  }
+
+  int attribute_index = 0;
+  while (meshHandle->attributes[attribute_index].is_valid) ++attribute_index;
+  if (attribute_index == 32) return kOfxStatErrMemory;
+  OfxMeshAttributePropertySet* attribute = &meshHandle->attributes[attribute_index];
+
+  attribute->is_valid = 1;
+  strncpy(attribute->attachment, attachment, 64);
+  strncpy(attribute->name, name, 64);
+  attribute->componentCount = componentCount;
+  strncpy(attribute->type, type, 64);
+  strncpy(attribute->semantic, semantic, 64);
+
+  *attributeHandle = (OfxPropertySetHandle)attribute;
+  return kOfxStatOK;
+}
+
 OfxStatus meshAlloc(OfxMeshHandle meshHandle)
 {
   printf("[host] meshAlloc(mesh %p)\n", meshHandle);
+  // TODO
+  return kOfxStatOK;
+}
+
+OfxStatus defaultAttributesDefine(OfxMeshHandle mesh)
+{
+  OfxPropertySetHandle attrib = NULL;
+  MFX_ENSURE(attributeDefine(mesh, kOfxMeshAttribPoint, kOfxMeshAttribPointPosition, 3, kOfxMeshAttribTypeFloat, NULL, &attrib));
+  MFX_ENSURE(attributeDefine(mesh, kOfxMeshAttribCorner, kOfxMeshAttribCornerPoint, 1, kOfxMeshAttribTypeInt, NULL, &attrib));
+  MFX_ENSURE(attributeDefine(mesh, kOfxMeshAttribFace, kOfxMeshAttribFaceSize, 1, kOfxMeshAttribTypeInt, NULL, &attrib));
   return kOfxStatOK;
 }
 
@@ -247,8 +336,8 @@ static const OfxMeshEffectSuiteV1 meshEffectSuiteV1 = {
   NULL, // OfxStatus (*inputRequestAttribute)(OfxMeshInputHandle input,
   inputGetMesh, // OfxStatus (*inputGetMesh)(OfxMeshInputHandle input,
   inputReleaseMesh, // OfxStatus (*inputReleaseMesh)(OfxMeshHandle meshHandle);
-  NULL, // OfxStatus(*attributeDefine)(OfxMeshHandle meshHandle,
-  NULL, // OfxStatus(*meshGetAttribute)(OfxMeshHandle meshHandle,
+  attributeDefine, // OfxStatus(*attributeDefine)(OfxMeshHandle meshHandle,
+  meshGetAttribute, // OfxStatus(*meshGetAttribute)(OfxMeshHandle meshHandle,
   NULL, // OfxStatus (*meshGetPropertySet)(OfxMeshHandle mesh,
   meshAlloc, // OfxStatus (*meshAlloc)(OfxMeshHandle meshHandle);
   NULL, // int (*abort)(OfxMeshEffectHandle meshEffect);
@@ -358,7 +447,7 @@ OfxStatus paramDefine(OfxParamSetHandle paramSet,
 {
   int param_index = 0;
   while (paramSet->entries[param_index].is_valid) ++param_index;
-  assert(param_index < 16);
+  if (param_index == 16) return kOfxStatErrMemory;
   OfxParamHandle param = &paramSet->entries[param_index];
 
   paramInit(param);
