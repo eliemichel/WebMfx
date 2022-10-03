@@ -1,9 +1,44 @@
+#include "openmfx-sdk/c/common/common.h" // for MFX_ENSURE
+
 #include <ofxCore.h>
 #include <ofxMeshEffect.h>
 #include <ofxProperty.h>
 #include <ofxParam.h>
 
 #include <string.h>
+#include <stdio.h>
+
+/*****************************************/
+/* Utils - to be moved to SDK            */
+
+typedef struct MfxAttributeProperties {
+  int component_count;
+  char *type;
+  char *semantic;
+  void *data;
+  size_t byte_stride;
+  int is_owner;
+} MfxAttributeProperties;
+
+OfxStatus mfxPullAttributeProperties(
+    const OfxPropertySuiteV1 *propertySuite,
+    const OfxPropertySetHandle attrib,
+    MfxAttributeProperties *props)
+{
+    MFX_ENSURE(propertySuite->propGetInt(attrib, kOfxMeshAttribPropComponentCount, 0, &props->component_count));
+    MFX_ENSURE(propertySuite->propGetString(attrib, kOfxMeshAttribPropType, 0, &props->type));
+    MFX_ENSURE(propertySuite->propGetString(attrib, kOfxMeshAttribPropSemantic, 0, &props->semantic));
+    MFX_ENSURE(propertySuite->propGetPointer(attrib, kOfxMeshAttribPropData, 0, &props->data));
+
+    int byte_stride;
+    MFX_ENSURE(propertySuite->propGetInt(attrib, kOfxMeshAttribPropStride, 0, &byte_stride));
+    props->byte_stride = (size_t)byte_stride;
+
+    MFX_ENSURE(propertySuite->propGetInt(attrib, kOfxMeshAttribPropIsOwner, 0, &props->is_owner));
+    return kOfxStatOK;
+}
+
+/*****************************************/
 
 const OfxMeshEffectSuiteV1 *meshEffectSuite;
 const OfxPropertySuiteV1 *propertySuite;
@@ -82,6 +117,16 @@ static OfxStatus cook(OfxMeshEffectHandle instance) {
                                       kOfxMeshAttribCornerPoint, &output_corner_point_attrib);
     meshEffectSuite->meshGetAttribute(output_mesh, kOfxMeshAttribFace,
                                       kOfxMeshAttribFaceSize, &output_face_size_attrib);
+
+    MfxAttributeProperties output_point_position_props;
+    MFX_ENSURE(mfxPullAttributeProperties(propertySuite, output_point_position_attrib, &output_point_position_props));
+    for (int i = 0 ; i < output_point_count ; ++i) {
+        float *P = (float*)(output_point_position_props.data + output_point_position_props.byte_stride * i);
+        for (int k = 0 ; k < 3 ; ++k) {
+            int sign = (i << k) % 2;
+            P[k] = sign * 1.0f;
+        }
+    }
 
     meshEffectSuite->inputReleaseMesh(output_mesh);
     return kOfxStatReplyDefault;
