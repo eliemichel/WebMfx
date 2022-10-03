@@ -14,6 +14,8 @@ call emcc src/main.c ^
 	src/openmfx-sdk/c/common/common.c ^
 	-sMAIN_MODULE ^
 	-sEXPORTED_RUNTIME_METHODS=cwrap,FS ^
+	-sMIN_WEBGL_VERSION=2 ^
+	-sMAX_WEBGL_VERSION=2 ^
 	--shell-file src/html_templates/index.html ^
 	-I src/openmfx ^
 	-g -gsource-map ^
@@ -24,5 +26,9 @@ call emcc src/empty.c ^
 	-sMAIN_MODULE=2 ^
 	-sEXPORTED_RUNTIME_METHODS=cwrap ^
 	-o build/main.html
+
+call emcc src/hellogl/main.cpp ^
+	--shell-file src/html_templates/index.html ^
+	-o build/hellogl.html
 
 REM copy src\test.html build\test.html
