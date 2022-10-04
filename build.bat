@@ -6,7 +6,7 @@ call emcc src/plugin.c ^
 	--source-map-base http://127.0.0.1:8888/build/ ^
 	-o build/plugin.wasm
 
-call emcc src/plugin2.c ^
+REM call emcc src/plugin2.c ^
 	-sSIDE_MODULE ^
 	-o build/plugin2.wasm
 
@@ -22,7 +22,7 @@ call emcc src/main.c ^
 	--source-map-base http://127.0.0.1:8888/build/ ^
 	-o build/index.html
 
-call emcc src/empty.c ^
+REM call emcc src/empty.c ^
 	-sMAIN_MODULE=2 ^
 	-sEXPORTED_RUNTIME_METHODS=cwrap ^
 	-o build/main.html

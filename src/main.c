@@ -57,6 +57,7 @@ typedef struct OfxMeshPropertySet {
   int point_count;
   int corner_count;
   int face_count;
+  int constant_face_size;
 } OfxMeshPropertySet;
 
 typedef struct OfxMeshAttributePropertySet {
@@ -124,6 +125,18 @@ void attributeInit(OfxMeshAttributePropertySet *attrib) {
 
 OfxStatus attributeAlloc(OfxMeshAttributePropertySet *attrib, OfxMeshPropertySet *props)
 {
+  if (NULL != attrib->data) {
+    return kOfxStatErrBadHandle;
+  }
+
+  // Don't allocate face size buffer when face size is constant
+  if (props->constant_face_size > -1
+    && 0 == strcmp(attrib->name, kOfxMeshAttribFaceSize)
+    && 0 == strcmp(attrib->attachment, kOfxMeshAttribFace))
+  {
+    return kOfxStatOK;
+  }
+
   int element_count;
   if (0 == strcmp(attrib->attachment, kOfxMeshAttribPoint)) {
     element_count = props->point_count;
@@ -179,6 +192,7 @@ void paramInit(OfxParamHandle param) {
 
 void meshInit(OfxMeshHandle mesh) {
   propertySetInit((OfxPropertySetHandle)&mesh->properties, PROPSET_MESH);
+  mesh->properties.constant_face_size = -1;
   for (int i = 0 ; i < 32 ; ++i) {
     attributeInit(&mesh->attributes[i]);
   }
@@ -596,6 +610,13 @@ OfxStatus propSetInt(OfxPropertySetHandle properties,
         mesh_props->face_count = value;
         return kOfxStatOK;
       }
+      else if (0 == strcmp(property, kOfxMeshPropConstantFaceSize)) {
+        if (index != 0) {
+          return kOfxStatErrBadIndex;
+        }
+        mesh_props->constant_face_size = value;
+        return kOfxStatOK;
+      }
       return kOfxStatErrBadHandle;
     }
     case PROPSET_ATTRIBUTE:
@@ -662,6 +683,13 @@ OfxStatus propGetInt(OfxPropertySetHandle properties,
           return kOfxStatErrBadIndex;
         }
         *value = mesh_props->face_count;
+        return kOfxStatOK;
+      }
+      else if (0 == strcmp(property, kOfxMeshPropConstantFaceSize)) {
+        if (index != 0) {
+          return kOfxStatErrBadIndex;
+        }
+        *value = mesh_props->constant_face_size;
         return kOfxStatOK;
       }
       return kOfxStatErrBadHandle;
@@ -797,7 +825,12 @@ const void* fetchSuite(OfxPropertySetHandle host, const char *suiteName, int sui
 
 typedef struct test_return_t {
   int point_count;
+  int corner_count;
+  int face_count;
+  int constant_face_size;
   char *point_position_data;
+  char *corner_point_data;
+  char *face_size_data;
 } test_return_t;
 
 EMSCRIPTEN_KEEPALIVE
@@ -914,18 +947,41 @@ int test(test_return_t* ret) {
     }
   }
   if (NULL != main_output) {
+    OfxStatus status;
     const OfxMeshPropertySet *props = &main_output->mesh.properties;
     printf(" - %d points\n", props->point_count);
     printf(" - %d corners\n", props->corner_count);
     printf(" - %d faces\n", props->face_count);
+    printf(" - constant_face_size = %d\n", props->constant_face_size);
     ret->point_count = props->point_count;
+    ret->corner_count = props->corner_count;
+    ret->face_count = props->face_count;
+    ret->constant_face_size = props->constant_face_size;
 
     OfxMeshAttributePropertySet *point_position_attrib;
-    OfxStatus status = meshGetAttribute(&main_output->mesh, kOfxMeshAttribPoint, kOfxMeshAttribPointPosition, (OfxPropertySetHandle*)&point_position_attrib);
+    status = meshGetAttribute(&main_output->mesh, kOfxMeshAttribPoint, kOfxMeshAttribPointPosition, (OfxPropertySetHandle*)&point_position_attrib);
     if (kOfxStatOK == status) {
       ret->point_position_data = point_position_attrib->data;
     } else {
       printf("Error: could not find a point position attribute in the output mesh!\n");
+    }
+
+    OfxMeshAttributePropertySet *corner_point_attrib;
+    status = meshGetAttribute(&main_output->mesh, kOfxMeshAttribCorner, kOfxMeshAttribCornerPoint, (OfxPropertySetHandle*)&corner_point_attrib);
+    if (kOfxStatOK == status) {
+      ret->corner_point_data = corner_point_attrib->data;
+    } else {
+      printf("Error: could not find a corner point attribute in the output mesh!\n");
+    }
+
+    if (props->constant_face_size == -1) {
+      OfxMeshAttributePropertySet *face_size_attrib;
+      status = meshGetAttribute(&main_output->mesh, kOfxMeshAttribFace, kOfxMeshAttribFaceSize, (OfxPropertySetHandle*)&face_size_attrib);
+      if (kOfxStatOK == status) {
+        ret->face_size_data = face_size_attrib->data;
+      } else {
+        printf("Error: could not find a face size attribute in the output mesh!\n");
+      }
     }
   } else {
     printf("Error: could not find any output in the effect!\n");
