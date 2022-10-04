@@ -152,12 +152,15 @@ OfxStatus attributeAlloc(OfxMeshAttributePropertySet *attrib, OfxMeshPropertySet
     return kOfxStatErrMemory;
   }
 
+  printf("[host] attributeAlloc -> %p\n", attrib->data);
+
   return kOfxStatOK;
 }
 
 void attributeDestroy(OfxMeshAttributePropertySet *attrib) {
   attrib->is_valid = 0;
   if (attrib->is_owner && NULL != attrib->data) {
+    printf("[host] attributeDestroy(data %p)\n", attrib->data);
     free(attrib->data);
     attrib->data = NULL;
   }
@@ -201,6 +204,11 @@ void meshInputCopy(OfxMeshInputHandle dst, const OfxMeshInputHandle src) {
   meshInputPropertySetCopy(&dst->properties, &src->properties);
 }
 
+void meshInputDestroy(OfxMeshInputHandle input) {
+  meshDestroy(&input->mesh);
+  input->is_valid = 0;
+}
+
 void meshEffectInit(OfxMeshEffectHandle meshEffect) {
   parameterSetInit(&meshEffect->parameters);
   for (int i = 0 ; i < 16 ; ++i) {
@@ -211,7 +219,7 @@ void meshEffectInit(OfxMeshEffectHandle meshEffect) {
 
 void meshEffectDestroy(OfxMeshEffectHandle meshEffect) {
   for (int i = 0 ; i < 16 ; ++i) {
-    meshEffect->inputs[i].is_valid = 0;
+    meshInputDestroy(&meshEffect->inputs[i]);
   }
   meshEffect->is_valid = 0;
 }
@@ -787,8 +795,13 @@ const void* fetchSuite(OfxPropertySetHandle host, const char *suiteName, int sui
 /*****************************************************************************/
 /* Test */
 
+typedef struct test_return_t {
+  int point_count;
+  char *point_position_data;
+} test_return_t;
+
 EMSCRIPTEN_KEEPALIVE
-int test(int argc, char** argv) {
+int test(test_return_t* ret) {
   printf("hello, world!\n");
 
   SDL_Init(SDL_INIT_VIDEO);
@@ -905,9 +918,21 @@ int test(int argc, char** argv) {
     printf(" - %d points\n", props->point_count);
     printf(" - %d corners\n", props->corner_count);
     printf(" - %d faces\n", props->face_count);
+    ret->point_count = props->point_count;
+
+    OfxMeshAttributePropertySet *point_position_attrib;
+    OfxStatus status = meshGetAttribute(&main_output->mesh, kOfxMeshAttribPoint, kOfxMeshAttribPointPosition, (OfxPropertySetHandle*)&point_position_attrib);
+    if (kOfxStatOK == status) {
+      ret->point_position_data = point_position_attrib->data;
+    } else {
+      printf("Error: could not find a point position attribute in the output mesh!\n");
+    }
   } else {
     printf("Error: could not find any output in the effect!\n");
   }
+
+  // TODO add a mechanism to clean up data from js code
+  return 0;
 
   meshEffectDestroy(&instance);
   meshEffectDestroy(&descriptor);

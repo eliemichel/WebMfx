@@ -27,8 +27,5 @@ call emcc src/empty.c ^
 	-sEXPORTED_RUNTIME_METHODS=cwrap ^
 	-o build/main.html
 
-call emcc src/hellogl/main.cpp ^
-	--shell-file src/html_templates/index.html ^
-	-o build/hellogl.html
-
 REM copy src\test.html build\test.html
+REM mklink build\js js

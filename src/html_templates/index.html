@@ -142,24 +142,8 @@
       };
     </script>
     {{{ SCRIPT }}}
-    <script type="text/javascript">
-      let api = {};
-
-      async function onUploadPlugin(e) {
-        const file_data = new Uint8Array(await e.target.files[0].arrayBuffer());
-        const f = Module.FS.open('plugin.wasm', 'w');
-        Module.FS.write(f, file_data, 0, file_data.length);
-        Module.FS.close(f);
-        api.test();
-      }
-
-      Module.onRuntimeInitialized = async () => {
-        console.log("Ready");
-        api = {
-          test: Module._test,
-        }
-        document.getElementById('plugin-input').addEventListener('change', onUploadPlugin);
-      };
-    </script>
+    <script type="text/javascript" src="js/three.min.js"></script>
+    <script type="text/javascript" src="js/controls/OrbitControls.js"></script>
+    <script type="text/javascript" src="js/main.js"></script>
   </body>
 </html>

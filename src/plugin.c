@@ -123,8 +123,8 @@ static OfxStatus cook(OfxMeshEffectHandle instance) {
     for (int i = 0 ; i < output_point_count ; ++i) {
         float *P = (float*)(output_point_position_props.data + output_point_position_props.byte_stride * i);
         for (int k = 0 ; k < 3 ; ++k) {
-            int sign = (i << k) % 2;
-            P[k] = sign * 1.0f;
+            int sign = (i >> k) % 2;
+            P[k] = sign * 2.0f - 1.0f;
         }
     }
 
