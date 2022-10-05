@@ -3,6 +3,10 @@ let api = {};
 function App() {
   this.needRender = true;
 
+  this.parameterValues = { 'foo': 42 };
+  this.gui = new dat.GUI({name: 'Parameters'});
+  this.gui.add(this.parameterValues, 'foo', 0, 100);
+
   this.onAnimationFrame = this.onAnimationFrame.bind(this);
   this.onCameraMoved = this.onCameraMoved.bind(this);
   this.onDomLoaded = this.onDomLoaded.bind(this);
