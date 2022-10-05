@@ -7,10 +7,10 @@ call emcc src/plugin.c ^
 	-o build/plugin.wasm
 
 REM call emcc src/plugin2.c ^
-	-sSIDE_MODULE ^
-	-o build/plugin2.wasm
+REM	-sSIDE_MODULE ^
+REM	-o build/plugin2.wasm
 
-call emcc src/main.c ^
+call emcc src/webmfx.cpp ^
 	src/openmfx-sdk/c/common/common.c ^
 	src/openmfx-sdk/c/host/types.c ^
 	src/openmfx-sdk/c/host/meshEffectSuite.c ^
@@ -29,9 +29,9 @@ call emcc src/main.c ^
 	-o build/index.html
 
 REM call emcc src/empty.c ^
-	-sMAIN_MODULE=2 ^
-	-sEXPORTED_RUNTIME_METHODS=cwrap ^
-	-o build/main.html
+REM	-sMAIN_MODULE=2 ^
+REM	-sEXPORTED_RUNTIME_METHODS=cwrap ^
+REM	-o build/main.html
 
 REM copy src\test.html build\test.html
 REM mklink build\js js

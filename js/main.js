@@ -3,6 +3,11 @@ let api = {};
 function App() {
   this.needRender = true;
 
+  this.effectLibrary = null;
+  this.effectDescriptors = [];
+  this.currentEffectIndex = -1;
+  this.effect = null;
+
   this.parameterValues = { 'foo': 42 };
   this.gui = new dat.GUI({name: 'Parameters'});
   this.gui.add(this.parameterValues, 'foo', 0, 100);
@@ -74,6 +79,7 @@ App.prototype.onCameraMoved = function() {
 }
 
 App.prototype.onLoadPlugin = async function(event) {
+  // Load plugin file into WebAssembly's memory
   const file_data = new Uint8Array(await event.target.files[0].arrayBuffer());
   const f = Module.FS.open('plugin.wasm', 'w');
   Module.FS.write(f, file_data, 0, file_data.length);
