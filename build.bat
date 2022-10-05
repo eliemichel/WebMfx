@@ -14,12 +14,16 @@ call emcc src/main.c ^
 	src/openmfx-sdk/c/common/common.c ^
 	src/openmfx-sdk/c/host/types.c ^
 	src/openmfx-sdk/c/host/meshEffectSuite.c ^
+	src/openmfx-sdk/c/host/propertySuite.c ^
+	src/openmfx-sdk/c/host/parameterSuite.c ^
+	src/openmfx-sdk/c/host/host.c ^
 	-sMAIN_MODULE ^
 	-sEXPORTED_RUNTIME_METHODS=cwrap,FS ^
 	-sMIN_WEBGL_VERSION=2 ^
 	-sMAX_WEBGL_VERSION=2 ^
 	--shell-file src/html_templates/index.html ^
 	-I src/openmfx ^
+	-I src/openmfx-sdk/c ^
 	-g -gsource-map ^
 	--source-map-base http://127.0.0.1:8888/build/ ^
 	-o build/index.html
