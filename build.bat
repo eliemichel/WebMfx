@@ -12,6 +12,8 @@ REM call emcc src/plugin2.c ^
 
 call emcc src/main.c ^
 	src/openmfx-sdk/c/common/common.c ^
+	src/openmfx-sdk/c/host/types.c ^
+	src/openmfx-sdk/c/host/meshEffectSuite.c ^
 	-sMAIN_MODULE ^
 	-sEXPORTED_RUNTIME_METHODS=cwrap,FS ^
 	-sMIN_WEBGL_VERSION=2 ^
