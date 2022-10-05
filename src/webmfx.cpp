@@ -1,3 +1,8 @@
+/**
+ * This defines the core binding between the OpenMfx host (WebAssembly) and
+ * JavaScript client code.
+ */
+
 // OpenMfx SDK
 extern "C" {
 #include <host/types.h>
@@ -20,6 +25,86 @@ extern "C" {
 #include <dlfcn.h>
 #include <assert.h>
 
+#include <vector>
+
+class NonCopyable {
+public:
+  NonCopyable() {}
+  NonCopyable(const NonCopyable&) = delete;
+  NonCopyable& operator=(const NonCopyable&) = delete;
+  NonCopyable(NonCopyable&&) = default;
+  NonCopyable& operator=(NonCopyable&&) = default;
+};
+
+class EffectLibrary : public NonCopyable {
+public:
+  ~EffectLibrary();
+  bool load(const char* plugin_filename);
+  void unload();
+  int getEffectCount();
+
+private:
+  void* m_handle;
+  std::vector<OfxPlugin*> m_effects;
+};
+
+#include <binding.cpp>
+
+EffectLibrary::~EffectLibrary() {
+  unload();
+}
+
+bool EffectLibrary::load(const char* plugin_filename) {
+  if (nullptr != m_handle) {
+    unload();
+  }
+
+  m_handle = dlopen(plugin_filename, RTLD_LAZY);
+
+  if (nullptr == m_handle) {
+    printf("Error while loading plugin: %s\n", dlerror());
+    return false;
+  }
+
+  int (*OfxGetNumberOfPlugins)(void) = (int(*)(void))dlsym(m_handle, "OfxGetNumberOfPlugins");
+  if (nullptr == OfxGetNumberOfPlugins) {
+    printf("Error while loading symbol 'OfxGetNumberOfPlugins': %s\n", dlerror());
+    unload();
+    return false;
+  }
+  OfxPlugin*(*OfxGetPlugin)(int) = (OfxPlugin*(*)(int))dlsym(m_handle, "OfxGetPlugin");
+  if (nullptr == OfxGetPlugin) {
+    printf("Error while loading symbol 'OfxGetPlugin': %s\n", dlerror());
+    unload();
+    return false;
+  }
+
+  int plugin_count = OfxGetNumberOfPlugins();
+  printf("Found %d plugins:\n", plugin_count);
+  m_effects.resize(plugin_count);
+  for (int i = 0 ; i < plugin_count ; ++i) {
+    m_effects[i] = OfxGetPlugin(i);
+    printf(" - %s\n", m_effects[i]->pluginIdentifier);
+  }
+
+  return true;
+}
+
+void EffectLibrary::unload() {
+  if (nullptr != m_handle) {
+    int status = dlclose(m_handle);
+    m_handle = nullptr;
+
+    if (status != 0) {
+      printf("Error while closing plugin: %s (status=%d)\n", dlerror(), status);
+    }
+  }
+}
+
+int EffectLibrary::getEffectCount() {
+  return static_cast<int>(m_effects.size());
+}
+
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
 #else
@@ -40,7 +125,7 @@ typedef struct test_return_t {
 } test_return_t;
 
 EMSCRIPTEN_KEEPALIVE
-int test(test_return_t* ret) {
+extern "C" int test(test_return_t* ret) {
   printf("hello, world!\n");
 
   SDL_Init(SDL_INIT_VIDEO);

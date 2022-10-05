@@ -1,0 +1,6 @@
+interface EffectLibrary {
+  void EffectLibrary();
+  boolean load(DOMString plugin_filename);
+  void unload();
+  long getEffectCount();
+};

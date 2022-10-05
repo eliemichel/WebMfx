@@ -10,6 +10,10 @@ REM call emcc src/plugin2.c ^
 REM	-sSIDE_MODULE ^
 REM	-o build/plugin2.wasm
 
+call %EMSDK%/upstream/emscripten/tools/webidl_binder ^
+	src/binding.idl ^
+	build/bindings/binding
+
 call emcc src/webmfx.cpp ^
 	src/openmfx-sdk/c/common/common.c ^
 	src/openmfx-sdk/c/host/types.c ^
@@ -24,6 +28,8 @@ call emcc src/webmfx.cpp ^
 	--shell-file src/html_templates/index.html ^
 	-I src/openmfx ^
 	-I src/openmfx-sdk/c ^
+	-I build/bindings ^
+	--post-js build/bindings/binding.js ^
 	-g -gsource-map ^
 	--source-map-base http://127.0.0.1:8888/build/ ^
 	-o build/index.html
