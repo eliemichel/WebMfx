@@ -90,7 +90,7 @@ void attributeDestroy(OfxMeshAttributePropertySet *attrib) {
 
 void parameterSetInit(OfxParamSetHandle parameterSet) {
   for (int i = 0 ; i < 16 ; ++i) {
-    parameterSet->entries[1].is_valid = 0;
+    parameterSet->entries[i].is_valid = 0;
   }
 }
 
@@ -135,7 +135,7 @@ void meshInputDestroy(OfxMeshInputHandle input) {
 void meshEffectInit(OfxMeshEffectHandle meshEffect) {
   parameterSetInit(&meshEffect->parameters);
   for (int i = 0 ; i < 16 ; ++i) {
-    meshEffect->inputs[1].is_valid = 0;
+    meshEffect->inputs[i].is_valid = 0;
   }
   meshEffect->is_valid = 1;
 }

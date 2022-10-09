@@ -27,28 +27,103 @@ extern "C" {
 
 #include <vector>
 
-class NonCopyable {
+#define MOVE_ONLY(ClassName) \
+  ClassName(const ClassName&) = delete; \
+  ClassName& operator=(const ClassName&) = delete; \
+  ClassName(ClassName&&) = default; \
+  ClassName& operator=(ClassName&&) = default;
+
+//--------------------------------------------------------
+
+OfxHost* getGlobalHost() {
+  static OfxHost host;
+  host.fetchSuite = &fetchSuite;
+  return &host;
+}
+
+//--------------------------------------------------------
+
+class Effect {
 public:
-  NonCopyable() {}
-  NonCopyable(const NonCopyable&) = delete;
-  NonCopyable& operator=(const NonCopyable&) = delete;
-  NonCopyable(NonCopyable&&) = default;
-  NonCopyable& operator=(NonCopyable&&) = default;
+  Effect();
+  ~Effect();
+  MOVE_ONLY(Effect)
+
+  void setPlugin(OfxPlugin* plugin);
+  const char* identifier() const;
+  // Load and build descriptor
+  OfxStatus load();
+  OfxStatus unload();
+
+  int getParameterCount() const;
+
+private:
+  OfxPlugin* m_plugin = nullptr;
+  OfxMeshEffectStruct m_descriptor;
+  bool m_loaded = false;
 };
 
-class EffectLibrary : public NonCopyable {
+Effect::Effect() {}
+
+Effect::~Effect() {
+  unload();
+}
+
+void Effect::setPlugin(OfxPlugin* plugin) {
+  m_plugin = plugin;
+}
+
+const char* Effect::identifier() const {
+  return m_plugin->pluginIdentifier;
+}
+
+OfxStatus Effect::load() {
+  assert(m_plugin);
+  m_plugin->setHost(getGlobalHost());
+  MFX_ENSURE(m_plugin->mainEntry(kOfxActionLoad, NULL, NULL, NULL));
+  meshEffectInit(&m_descriptor);
+  MFX_ENSURE(m_plugin->mainEntry(kOfxActionDescribe, &m_descriptor, NULL, NULL));
+  m_loaded = true;
+  return kOfxStatOK;
+}
+
+OfxStatus Effect::unload() {
+  if (!m_loaded) return kOfxStatOK;
+  MFX_ENSURE(m_plugin->mainEntry(kOfxActionUnload, NULL, NULL, NULL));
+  m_loaded = false;
+  return kOfxStatOK;
+}
+
+int Effect::getParameterCount() const {
+  assert(m_loaded);
+  int count = 0;
+  for (int i = 0 ; i < 16 && m_descriptor.parameters.entries[i].is_valid ; ++i) {
+    ++count;
+  }
+  return count;
+}
+
+//--------------------------------------------------------
+
+class EffectLibrary {
 public:
+  EffectLibrary();
   ~EffectLibrary();
+  MOVE_ONLY(EffectLibrary)
+
   bool load(const char* plugin_filename);
   void unload();
-  int getEffectCount();
+  int getEffectCount() const;
+  const Effect* getEffect(int effectIndex) const;
 
 private:
   void* m_handle;
-  std::vector<OfxPlugin*> m_effects;
+  std::vector<Effect> m_effects;
 };
 
 #include <binding.cpp>
+
+EffectLibrary::EffectLibrary() {}
 
 EffectLibrary::~EffectLibrary() {
   unload();
@@ -83,14 +158,18 @@ bool EffectLibrary::load(const char* plugin_filename) {
   printf("Found %d plugins:\n", plugin_count);
   m_effects.resize(plugin_count);
   for (int i = 0 ; i < plugin_count ; ++i) {
-    m_effects[i] = OfxGetPlugin(i);
-    printf(" - %s\n", m_effects[i]->pluginIdentifier);
+    m_effects[i].setPlugin(OfxGetPlugin(i));
+    printf(" - %s\n", m_effects[i].identifier());
   }
 
   return true;
 }
 
 void EffectLibrary::unload() {
+  for (auto& effect : m_effects) {
+    effect.unload();
+  }
+
   if (nullptr != m_handle) {
     int status = dlclose(m_handle);
     m_handle = nullptr;
@@ -101,9 +180,15 @@ void EffectLibrary::unload() {
   }
 }
 
-int EffectLibrary::getEffectCount() {
+int EffectLibrary::getEffectCount() const {
   return static_cast<int>(m_effects.size());
 }
+
+const Effect* EffectLibrary::getEffect(int effectIndex) const {
+  return &m_effects[effectIndex];
+}
+
+//--------------------------------------------------------
 
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>

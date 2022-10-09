@@ -64,6 +64,13 @@
       <input type="button" value="Fullscreen" onclick="Module.requestFullscreen(document.getElementById('pointerLock').checked, 
                                                                                 document.getElementById('resize').checked)">
       <input type="file" value="Plugin" accept="application/wasm" id="plugin-input">
+      <select id="effect-index">
+        <option value="">(Load a plugin first)</option>
+      </select>
+    </div>
+    <hr/>
+    <div>
+      Parameters: <div id="parameters"></div>
     </div>
     
     <hr/>

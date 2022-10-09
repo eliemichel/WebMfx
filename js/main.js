@@ -1,9 +1,14 @@
 let api = {};
 
+function capitalize(string) {
+  return string.charAt(0).toUpperCase() + string.slice(1);
+}
+
 function App() {
   this.needRender = true;
 
   this.effectLibrary = null;
+  this.effectIndices = {};
   this.effectDescriptors = [];
   this.currentEffectIndex = -1;
   this.effect = null;
@@ -12,10 +17,18 @@ function App() {
   this.gui = new dat.GUI({name: 'Parameters'});
   this.gui.add(this.parameterValues, 'foo', 0, 100);
 
+  this.dom = {
+    pluginInput: document.getElementById('plugin-input'),
+    effectIndex: document.getElementById('effect-index'),
+    parameters: document.getElementById('parameters'),
+  };
+
   this.onAnimationFrame = this.onAnimationFrame.bind(this);
   this.onCameraMoved = this.onCameraMoved.bind(this);
   this.onDomLoaded = this.onDomLoaded.bind(this);
-  this.onLoadPlugin = this.onLoadPlugin.bind(this);
+  this.onUploadEffectLibrary = this.onUploadEffectLibrary.bind(this);
+  this.onRuntimeInitialized = this.onRuntimeInitialized.bind(this);
+  this.onSelectEffect = this.onSelectEffect.bind(this);
 }
 
 App.prototype.onDomLoaded = function() {
@@ -78,12 +91,36 @@ App.prototype.onCameraMoved = function() {
   this.needRender = true;
 }
 
-App.prototype.onLoadPlugin = async function(event) {
+App.prototype.onUploadEffectLibrary = async function(event) {
   // Load plugin file into WebAssembly's memory
   const file_data = new Uint8Array(await event.target.files[0].arrayBuffer());
   const f = Module.FS.open('plugin.wasm', 'w');
   Module.FS.write(f, file_data, 0, file_data.length);
   Module.FS.close(f);
+
+  // 1. Loading library
+  this.effectLibrary.load('plugin.wasm');
+  const effectCount = this.effectLibrary.getEffectCount();
+  console.log(`Found ${effectCount} effects in library`);
+
+  const options = [];
+  const o = document.createElement('option');
+  o.innerText = "(Select an effect)";
+  o.value = '';
+  options.push(o);
+  this.effectIndices = {};
+  for (let i = 0 ; i < effectCount ; ++i) {
+    const effect = this.effectLibrary.getEffect(i);
+    const identifier = effect.identifier();
+    this.effectIndices[identifier] = i;
+    const o = document.createElement('option');
+    o.innerText = capitalize(identifier);
+    o.value = identifier;
+    options.push(o);
+  }
+  this.dom.effectIndex.replaceChildren(...options);
+  
+  return;
 
   const ret_ptr = Module._malloc(7 * 4);
   console.log(ret_ptr);
@@ -186,14 +223,42 @@ App.prototype.onLoadPlugin = async function(event) {
   this.needRender = true;
 };
 
-const app = new App();
+App.prototype.onSelectEffect = function(event) {
+  const identifier = this.dom.effectIndex.value;
+  const effectIndex = this.effectIndices[identifier];
+  if (effectIndex === undefined) return;
 
-Module.onRuntimeInitialized = async () => {
+  const effect = this.effectLibrary.getEffect(effectIndex);
+  let status;
+  status = effect.load();
+  console.log(`status = ${status}`);
+  const parameterCount = effect.getParameterCount();
+  console.log(`parameterCount = ${parameterCount}`);
+
+  const paramInputs = [];
+  for (let i = 0 ; i < parameterCount ; ++i) {
+    const input = document.createElement('input');
+    input.type = "text";
+    input.value = i;
+    paramInputs.push(input);
+  }
+  this.dom.parameters.replaceChildren(...paramInputs);
+
+  status = effect.unload();
+}
+
+App.prototype.onRuntimeInitialized = async function(event) {
   console.log("WebAssembly module is ready.");
   api = {
     test: Module._test,
   }
-  document.getElementById('plugin-input').addEventListener('change', app.onLoadPlugin);
-};
 
+  app.effectLibrary = new Module.EffectLibrary();
+
+  this.dom.pluginInput.addEventListener('change', app.onUploadEffectLibrary);
+  this.dom.effectIndex.addEventListener('change', app.onSelectEffect);
+}
+
+const app = new App();
+Module.onRuntimeInitialized = app.onRuntimeInitialized;
 document.addEventListener('DOMContentLoaded', app.onDomLoaded);
