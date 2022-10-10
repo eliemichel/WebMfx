@@ -1,13 +1,18 @@
+interface Parameter {
+  [Const] DOMString identifier();
+};
+
 interface Effect {
   [Const] DOMString identifier();
   long load();
   long unload();
   long getParameterCount();
+  [Const] Parameter getParameter(long parameterIndex);
 };
 
 interface EffectLibrary {
   void EffectLibrary();
-  boolean load(DOMString plugin_filename);
+  boolean load(DOMString pluginFilename);
   void unload();
   long getEffectCount();
   [Const] Effect getEffect(long effectIndex);

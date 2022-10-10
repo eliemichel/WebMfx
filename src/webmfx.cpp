@@ -43,6 +43,27 @@ OfxHost* getGlobalHost() {
 
 //--------------------------------------------------------
 
+class Parameter {
+public:
+  Parameter(OfxParamStruct* backend);
+  MOVE_ONLY(Parameter)
+
+  const char* identifier() const;
+
+private:
+  OfxParamStruct* m_backend;
+};
+
+Parameter::Parameter(OfxParamStruct* backend)
+  : m_backend(backend)
+{}
+
+const char* Parameter::identifier() const {
+  return m_backend->name;
+}
+
+//--------------------------------------------------------
+
 class Effect {
 public:
   Effect();
@@ -56,10 +77,12 @@ public:
   OfxStatus unload();
 
   int getParameterCount() const;
+  const Parameter* getParameter(int parameterIndex) const;
 
 private:
   OfxPlugin* m_plugin = nullptr;
   OfxMeshEffectStruct m_descriptor;
+  std::vector<Parameter> m_parameters;
   bool m_loaded = false;
 };
 
@@ -84,11 +107,21 @@ OfxStatus Effect::load() {
   meshEffectInit(&m_descriptor);
   MFX_ENSURE(m_plugin->mainEntry(kOfxActionDescribe, &m_descriptor, NULL, NULL));
   m_loaded = true;
+
+  // Wraps parameters into a user exposed type
+  int n = getParameterCount();
+  m_parameters.reserve(n);
+  for (int i = 0 ; i < n ; ++i) {
+    m_parameters.push_back(Parameter(&m_descriptor.parameters.entries[i]));
+  }
+
   return kOfxStatOK;
 }
 
 OfxStatus Effect::unload() {
   if (!m_loaded) return kOfxStatOK;
+  m_parameters.clear();
+  meshEffectDestroy(&m_descriptor);
   MFX_ENSURE(m_plugin->mainEntry(kOfxActionUnload, NULL, NULL, NULL));
   m_loaded = false;
   return kOfxStatOK;
@@ -103,6 +136,10 @@ int Effect::getParameterCount() const {
   return count;
 }
 
+const Parameter* Effect::getParameter(int parameterIndex) const {
+  return &m_parameters[parameterIndex];
+}
+
 //--------------------------------------------------------
 
 class EffectLibrary {
@@ -111,7 +148,7 @@ public:
   ~EffectLibrary();
   MOVE_ONLY(EffectLibrary)
 
-  bool load(const char* plugin_filename);
+  bool load(const char* pluginFilename);
   void unload();
   int getEffectCount() const;
   const Effect* getEffect(int effectIndex) const;
@@ -129,12 +166,12 @@ EffectLibrary::~EffectLibrary() {
   unload();
 }
 
-bool EffectLibrary::load(const char* plugin_filename) {
+bool EffectLibrary::load(const char* pluginFilename) {
   if (nullptr != m_handle) {
     unload();
   }
 
-  m_handle = dlopen(plugin_filename, RTLD_LAZY);
+  m_handle = dlopen(pluginFilename, RTLD_LAZY);
 
   if (nullptr == m_handle) {
     printf("Error while loading plugin: %s\n", dlerror());

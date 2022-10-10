@@ -29,6 +29,7 @@ function App() {
   this.onUploadEffectLibrary = this.onUploadEffectLibrary.bind(this);
   this.onRuntimeInitialized = this.onRuntimeInitialized.bind(this);
   this.onSelectEffect = this.onSelectEffect.bind(this);
+  this.onParameterChanged = this.onParameterChanged.bind(this);
 }
 
 App.prototype.onDomLoaded = function() {
@@ -237,14 +238,27 @@ App.prototype.onSelectEffect = function(event) {
 
   const paramInputs = [];
   for (let i = 0 ; i < parameterCount ; ++i) {
-    const input = document.createElement('input');
-    input.type = "text";
-    input.value = i;
-    paramInputs.push(input);
+    const identifier = effect.getParameter(i).identifier();
+    const divElement = document.createElement('div');
+    const labelElement = document.createElement('label');
+    labelElement.for = identifier;
+    labelElement.innerText = identifier + " ";
+    divElement.appendChild(labelElement);
+    const inputElement = document.createElement('input');
+    inputElement.type = "text";
+    inputElement.name = identifier;
+    inputElement.value = i;
+    inputElement.addEventListener('change', this.onParameterChanged)
+    divElement.appendChild(inputElement);
+    paramInputs.push(divElement);
   }
   this.dom.parameters.replaceChildren(...paramInputs);
 
   status = effect.unload();
+}
+
+App.prototype.onParameterChanged = function(event) {
+  console.log(`parameter changed: ${event.target.name}`)
 }
 
 App.prototype.onRuntimeInitialized = async function(event) {
