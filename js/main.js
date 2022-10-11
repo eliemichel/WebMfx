@@ -279,6 +279,100 @@ App.prototype.cook = function(event) {
   let status;
   status = this.effectInstance.cook();
   console.log(`status = ${status}`);
+
+  const mesh = this.effectInstance.getOutputMesh();
+  console.log(mesh.isValid());
+  console.log(` - ${mesh.pointCount()} points`);
+  console.log(` - ${mesh.cornerCount()} corners`);
+  console.log(` - ${mesh.faceCount()} faces`);
+  console.log(` - constantFaceSize = ${mesh.constantFaceSize()}`);
+
+  const pointPositionAttrib = mesh.getAttribute("OfxMeshAttribPoint", "OfxMeshAttribPointPosition");
+  const pointPositionData = new Float32Array(Module.HEAP8.buffer, pointPositionAttrib.data().ptr, 3 * mesh.pointCount());
+  console.log(`pointPositionAttrib.data = ${pointPositionData}`);
+
+  const cornerPointAttrib = mesh.getAttribute("OfxMeshAttribCorner", "OfxMeshAttribCornerPoint");
+  const cornerPointData = new Int32Array(Module.HEAP8.buffer, cornerPointAttrib.data().ptr, mesh.cornerCount());
+  console.log(`cornerPointAttrib.data = ${cornerPointData}`);
+
+  let faceSizeData;
+  if (mesh.constantFaceSize() == -1) {
+    const faceSizeAttrib = mesh.getAttribute("OfxMeshAttribFace", "OfxMeshAttribFaceSize");
+    const faceSizeData = new Int32Array(Module.HEAP8.buffer, faceSizeAttrib.data().ptr, mesh.faceCount());
+  } else {
+    faceSizeData = new Int32Array(mesh.faceCount());
+    faceSizeData.fill(mesh.constantFaceSize());
+  }
+  console.log(`faceSizeAttrib.data = ${faceSizeData}`);
+
+  this.updateMesh(mesh.pointCount(), mesh.cornerCount(), mesh.faceCount(), pointPositionData, cornerPointData, faceSizeData);
+}
+
+App.prototype.updateMesh = function(point_count, corner_count, face_count, point_position_data, corner_point_data, face_size_data) {
+  let triangle_count = 0;
+  for (let f = 0 ; f < face_count ; ++f) {
+    const size = face_size_data[f];
+    if (size == 3) {
+      triangle_count += 1;
+    } else if (size == 4) {
+      triangle_count += 2;
+    } else {
+      console.error(`Unsupported face size in face #${f}: ${size}`);
+    }
+  }
+  const tesselated_corner_point_data = new Uint32Array(3 * triangle_count);
+  let triangle_index = 0;
+  let corner_index = 0;
+  for (let f = 0 ; f < face_count ; ++f) {
+    const size = face_size_data[f];
+
+    for (let k = 0 ; k < 3 ; ++k) {
+      tesselated_corner_point_data[3 * triangle_index + k] = corner_point_data[corner_index + k];
+    }
+    ++triangle_index;
+
+    if (size == 4) {
+      for (let k = 0 ; k < 3 ; ++k) {
+        tesselated_corner_point_data[3 * triangle_index + k] = corner_point_data[corner_index + (k + 2) % 4];
+      }
+      ++triangle_index;
+    }
+
+    corner_index += size;
+  }
+
+  // Expand the index buffer and compute normals
+  const tesselated_point_position_data = new Float32Array(3 * 3 * triangle_count);
+  const tesselated_point_normal_data = new Float32Array(3 * 3 * triangle_count);
+  const pos = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];
+  const ab = new THREE.Vector3();
+  const ac = new THREE.Vector3();
+  const normal = new THREE.Vector3();
+  for (let t = 0 ; t < triangle_count ; ++t) {
+    for (let c = 0 ; c < 3 ; ++c) {
+      const p = tesselated_corner_point_data[3 * t + c];
+      for (let k = 0 ; k < 3 ; ++k) {
+        const value = point_position_data[3 * p + k];
+        pos[c].setComponent(k, value);
+        tesselated_point_position_data[3 * (3 * t + c) + k] = value;
+      }
+    }
+    ab.subVectors(pos[1], pos[0]);
+    ac.subVectors(pos[2], pos[0]);
+    normal.crossVectors(ab, ac);
+    normal.normalize();
+    for (let c = 0 ; c < 3 ; ++c) {
+      for (let k = 0 ; k < 3 ; ++k) {
+        tesselated_point_normal_data[3 * (3 * t + c) + k] = normal.getComponent(k);
+      }
+    }
+  }
+
+  // Update geometry
+  this.pointGeometry.setAttribute('position', new THREE.BufferAttribute(tesselated_point_position_data, 3));
+  this.pointGeometry.setAttribute('normal', new THREE.BufferAttribute(tesselated_point_normal_data, 3));
+  //this.pointGeometry.setIndex(new THREE.BufferAttribute(tesselated_corner_point_data, 1));
+  this.needRender = true;
 }
 
 App.prototype.onRuntimeInitialized = async function(event) {

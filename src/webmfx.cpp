@@ -68,6 +68,81 @@ const char* Parameter::identifier() const {
 
 //--------------------------------------------------------
 
+class Attribute {
+public:
+  Attribute(OfxMeshAttributePropertySet *attribute = nullptr);
+  MOVE_ONLY(Attribute)
+
+  void* data() const;
+
+private:
+  OfxMeshAttributePropertySet *m_attribute;
+};
+
+Attribute::Attribute(OfxMeshAttributePropertySet *attribute)
+  : m_attribute(attribute)
+{}
+
+void* Attribute::data() const {
+  return m_attribute ? m_attribute->data : nullptr;
+}
+
+//--------------------------------------------------------
+
+class Mesh {
+public:
+  Mesh(OfxMeshStruct *mesh = nullptr);
+  MOVE_ONLY(Mesh)
+
+  bool isValid() const;
+  int pointCount() const;
+  int cornerCount() const;
+  int faceCount() const;
+  int constantFaceSize() const;
+  Attribute getAttribute(const char *attachement, const char *identifier) const;
+
+private:
+  OfxMeshStruct *m_mesh;
+};
+
+Mesh::Mesh(OfxMeshStruct *mesh)
+  : m_mesh(mesh)
+{}
+
+bool Mesh::isValid() const {
+  return m_mesh != nullptr;
+}
+
+int Mesh::pointCount() const {
+  return m_mesh->properties.point_count;
+}
+
+int Mesh::cornerCount() const {
+  return m_mesh->properties.corner_count;
+}
+
+int Mesh::faceCount() const {
+  return m_mesh->properties.face_count;
+}
+
+int Mesh::constantFaceSize() const {
+  return m_mesh->properties.constant_face_size;
+}
+
+Attribute Mesh::getAttribute(const char *attachement, const char *identifier) const {
+  OfxMeshAttributePropertySet *attrib;
+  OfxStatus status = meshGetAttribute(m_mesh, attachement, identifier, (OfxPropertySetHandle*)&attrib);
+  if (kOfxStatOK == status) {
+    return Attribute(attrib);
+  } else {
+    printf("Error: could not find the attribute %s for attachement %s!\n", identifier, attachement);
+    return Attribute();
+  }
+}
+
+
+//--------------------------------------------------------
+
 class EffectDescriptor;
 
 class EffectInstance {
@@ -78,6 +153,7 @@ public:
 
   OfxStatus setParameter(const char* identifier, double value);
   OfxStatus cook();
+  Mesh getOutputMesh();
 
 private:
   OfxParamStruct* findParameter(const char* identifier);
@@ -141,6 +217,16 @@ OfxStatus EffectInstance::setParameter(const char* identifier, double value) {
 OfxStatus EffectInstance::cook() {
   MFX_ENSURE(m_plugin->mainEntry(kOfxMeshEffectActionCook, &m_instance, NULL, NULL));
   return kOfxStatOK;
+}
+
+Mesh EffectInstance::getOutputMesh() {
+  for (int i = 0 ; i < 16 && m_instance.inputs[i].is_valid ; ++i) {
+    OfxMeshInputStruct *input = &m_instance.inputs[i];
+    if (0 == strcmp(input->name, kOfxMeshMainOutput)) {
+      return Mesh(&input->mesh);
+    }
+  }
+  return Mesh();
 }
 
 OfxParamStruct* EffectInstance::findParameter(const char* identifier) {

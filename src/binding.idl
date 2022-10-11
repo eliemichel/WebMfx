@@ -2,9 +2,23 @@ interface Parameter {
   [Const] DOMString identifier();
 };
 
+interface Attribute {
+  VoidPtr data();
+};
+
+interface Mesh {
+  boolean isValid();
+  long pointCount();
+  long cornerCount();
+  long faceCount();
+  long constantFaceSize();
+  [Value] Attribute getAttribute(DOMString attachement, DOMString identifier);
+};
+
 interface EffectInstance {
   long setParameter(DOMString identifier, float value);
   long cook();
+  [Value] Mesh getOutputMesh();
 };
 
 interface EffectDescriptor {
