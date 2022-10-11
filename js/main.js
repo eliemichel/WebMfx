@@ -9,9 +9,8 @@ function App() {
 
   this.effectLibrary = null;
   this.effectIndices = {};
-  this.effectDescriptors = [];
-  this.currentEffectIndex = -1;
-  this.effect = null;
+  this.effectDescriptor = null;
+  this.effectInstance = null;
 
   this.parameterValues = { 'foo': 42 };
   this.gui = new dat.GUI({name: 'Parameters'});
@@ -20,7 +19,8 @@ function App() {
   this.dom = {
     pluginInput: document.getElementById('plugin-input'),
     effectIndex: document.getElementById('effect-index'),
-    parameters: document.getElementById('parameters'),
+    parametersBlock: document.getElementById('parameters'),
+    parameters: [],
   };
 
   this.onAnimationFrame = this.onAnimationFrame.bind(this);
@@ -111,8 +111,8 @@ App.prototype.onUploadEffectLibrary = async function(event) {
   options.push(o);
   this.effectIndices = {};
   for (let i = 0 ; i < effectCount ; ++i) {
-    const effect = this.effectLibrary.getEffect(i);
-    const identifier = effect.identifier();
+    const effectDescriptor = this.effectLibrary.getEffectDescriptor(i);
+    const identifier = effectDescriptor.identifier();
     this.effectIndices[identifier] = i;
     const o = document.createElement('option');
     o.innerText = capitalize(identifier);
@@ -229,16 +229,18 @@ App.prototype.onSelectEffect = function(event) {
   const effectIndex = this.effectIndices[identifier];
   if (effectIndex === undefined) return;
 
-  const effect = this.effectLibrary.getEffect(effectIndex);
+  this.effectDescriptor = this.effectLibrary.getEffectDescriptor(effectIndex);
   let status;
-  status = effect.load();
+  status = this.effectDescriptor.load();
   console.log(`status = ${status}`);
-  const parameterCount = effect.getParameterCount();
+  const parameterCount = this.effectDescriptor.getParameterCount();
   console.log(`parameterCount = ${parameterCount}`);
 
   const paramInputs = [];
+  this.dom.parameters = [];
+  this.parameterValues = {};
   for (let i = 0 ; i < parameterCount ; ++i) {
-    const identifier = effect.getParameter(i).identifier();
+    const identifier = this.effectDescriptor.getParameter(i).identifier();
     const divElement = document.createElement('div');
     const labelElement = document.createElement('label');
     labelElement.for = identifier;
@@ -251,14 +253,32 @@ App.prototype.onSelectEffect = function(event) {
     inputElement.addEventListener('change', this.onParameterChanged)
     divElement.appendChild(inputElement);
     paramInputs.push(divElement);
+    this.dom.parameters.push(inputElement);
+    this.parameterValues[identifier] = i;
   }
-  this.dom.parameters.replaceChildren(...paramInputs);
+  this.dom.parametersBlock.replaceChildren(...paramInputs);
 
-  status = effect.unload();
+  if (this.effectInstance !== null) {
+    Module.destroy(this.effectInstance);
+  }
+  this.effectInstance = this.effectDescriptor.instantiate();
 }
 
 App.prototype.onParameterChanged = function(event) {
   console.log(`parameter changed: ${event.target.name}`)
+  this.parameterValues[event.target.name] = event.target.value;
+  this.cook();
+}
+
+App.prototype.cook = function(event) {
+  console.log(`Cooking...`);
+  for (let key in this.parameterValues) {
+    const value = this.parameterValues[key];
+    this.effectInstance.setParameter(key, value);
+  }
+  let status;
+  status = this.effectInstance.cook();
+  console.log(`status = ${status}`);
 }
 
 App.prototype.onRuntimeInitialized = async function(event) {

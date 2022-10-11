@@ -9,7 +9,7 @@ void meshInputPropertySetCopy(OfxMeshInputPropertySet *dst, const OfxMeshInputPr
   strncpy(dst->label, src->label, 256);
 }
 
-void propertySetCopy(OfxPropertySetHandle dst, const OfxPropertySetHandle src) {
+void propertySetCopy(OfxPropertySetHandle dst, const OfxPropertySetStruct *src) {
   assert(dst->type == src->type);
   switch (src->type) {
     case PROPSET_INPUT:
@@ -120,7 +120,7 @@ void meshInputInit(OfxMeshInputHandle input) {
   propertySetInit((OfxPropertySetHandle)&input->properties, PROPSET_INPUT);
 }
 
-void meshInputCopy(OfxMeshInputHandle dst, const OfxMeshInputHandle src) {
+void meshInputCopy(OfxMeshInputHandle dst, const OfxMeshInputStruct *src) {
   meshInputInit(dst);
   dst->is_valid = src->is_valid;
   strncpy(dst->name, src->name, 256);
@@ -147,7 +147,7 @@ void meshEffectDestroy(OfxMeshEffectHandle meshEffect) {
   meshEffect->is_valid = 0;
 }
 
-void meshEffectCopy(OfxMeshEffectHandle dst, const OfxMeshEffectHandle src) {
+void meshEffectCopy(OfxMeshEffectHandle dst, const OfxMeshEffectStruct *src) {
   if (dst->is_valid) {
     meshEffectDestroy(dst);
   }

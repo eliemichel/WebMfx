@@ -20,10 +20,11 @@ extern "C" {
 #include <ofxParam.h>
 
 // Other includes
-#include <stdio.h>
+#include <cstdio>
 #include <SDL/SDL.h>
 #include <dlfcn.h>
-#include <assert.h>
+#include <cassert>
+#include <cstring>
 
 #include <vector>
 
@@ -43,6 +44,9 @@ OfxHost* getGlobalHost() {
 
 //--------------------------------------------------------
 
+/**
+ * Wrapper around descriptor's parameters to expose them to JS
+ */
 class Parameter {
 public:
   Parameter(OfxParamStruct* backend);
@@ -64,11 +68,33 @@ const char* Parameter::identifier() const {
 
 //--------------------------------------------------------
 
-class Effect {
+class EffectDescriptor;
+
+class EffectInstance {
 public:
-  Effect();
-  ~Effect();
-  MOVE_ONLY(Effect)
+  EffectInstance(const EffectDescriptor& descriptor);
+  ~EffectInstance();
+  MOVE_ONLY(EffectInstance)
+
+  OfxStatus setParameter(const char* identifier, double value);
+  OfxStatus cook();
+
+private:
+  OfxParamStruct* findParameter(const char* identifier);
+
+private:
+  const OfxPlugin* m_plugin = nullptr;
+  const OfxMeshEffectStruct* m_descriptor;
+  OfxMeshEffectStruct m_instance;
+};
+
+//--------------------------------------------------------
+
+class EffectDescriptor {
+public:
+  EffectDescriptor();
+  ~EffectDescriptor();
+  MOVE_ONLY(EffectDescriptor)
 
   void setPlugin(OfxPlugin* plugin);
   const char* identifier() const;
@@ -79,28 +105,72 @@ public:
   int getParameterCount() const;
   const Parameter* getParameter(int parameterIndex) const;
 
+  EffectInstance *instantiate() const;
+
+  // For EffectInstance only
+  const OfxPlugin* plugin() const { return m_plugin; }
+  const OfxMeshEffectStruct* raw() const { return &m_descriptor; }
+
 private:
-  OfxPlugin* m_plugin = nullptr;
+  const OfxPlugin* m_plugin = nullptr;
   OfxMeshEffectStruct m_descriptor;
   std::vector<Parameter> m_parameters;
   bool m_loaded = false;
 };
 
-Effect::Effect() {}
+//--------------------------------------------------------
 
-Effect::~Effect() {
+EffectInstance::EffectInstance(const EffectDescriptor& descriptor)
+  : m_descriptor(descriptor.raw())
+  , m_plugin(descriptor.plugin())
+{
+  meshEffectCopy(&m_instance, m_descriptor);
+}
+
+EffectInstance::~EffectInstance() {
+  meshEffectDestroy(&m_instance);
+}
+
+OfxStatus EffectInstance::setParameter(const char* identifier, double value) {
+  OfxParamStruct *param = findParameter(identifier);
+  if (nullptr == param) return kOfxStatErrBadHandle;
+  param->values[0].as_double = value;
+  return kOfxStatOK;
+}
+
+OfxStatus EffectInstance::cook() {
+  MFX_ENSURE(m_plugin->mainEntry(kOfxMeshEffectActionCook, &m_instance, NULL, NULL));
+  return kOfxStatOK;
+}
+
+OfxParamStruct* EffectInstance::findParameter(const char* identifier) {
+  auto& parameters = m_instance.parameters.entries;
+  for (int i = 0 ; i < 16 && parameters[i].is_valid ; ++i) {
+    OfxParamStruct* param = &parameters[i];
+    if (0 == strncmp(identifier, param->name, 64)) {
+      return param;
+    }
+  }
+  return nullptr;
+}
+
+//--------------------------------------------------------
+
+EffectDescriptor::EffectDescriptor() {}
+
+EffectDescriptor::~EffectDescriptor() {
   unload();
 }
 
-void Effect::setPlugin(OfxPlugin* plugin) {
+void EffectDescriptor::setPlugin(OfxPlugin* plugin) {
   m_plugin = plugin;
 }
 
-const char* Effect::identifier() const {
+const char* EffectDescriptor::identifier() const {
   return m_plugin->pluginIdentifier;
 }
 
-OfxStatus Effect::load() {
+OfxStatus EffectDescriptor::load() {
   assert(m_plugin);
   m_plugin->setHost(getGlobalHost());
   MFX_ENSURE(m_plugin->mainEntry(kOfxActionLoad, NULL, NULL, NULL));
@@ -118,7 +188,7 @@ OfxStatus Effect::load() {
   return kOfxStatOK;
 }
 
-OfxStatus Effect::unload() {
+OfxStatus EffectDescriptor::unload() {
   if (!m_loaded) return kOfxStatOK;
   m_parameters.clear();
   meshEffectDestroy(&m_descriptor);
@@ -127,7 +197,7 @@ OfxStatus Effect::unload() {
   return kOfxStatOK;
 }
 
-int Effect::getParameterCount() const {
+int EffectDescriptor::getParameterCount() const {
   assert(m_loaded);
   int count = 0;
   for (int i = 0 ; i < 16 && m_descriptor.parameters.entries[i].is_valid ; ++i) {
@@ -136,8 +206,12 @@ int Effect::getParameterCount() const {
   return count;
 }
 
-const Parameter* Effect::getParameter(int parameterIndex) const {
+const Parameter* EffectDescriptor::getParameter(int parameterIndex) const {
   return &m_parameters[parameterIndex];
+}
+
+EffectInstance* EffectDescriptor::instantiate() const {
+  return new EffectInstance(*this);
 }
 
 //--------------------------------------------------------
@@ -151,11 +225,11 @@ public:
   bool load(const char* pluginFilename);
   void unload();
   int getEffectCount() const;
-  const Effect* getEffect(int effectIndex) const;
+  const EffectDescriptor* getEffectDescriptor(int effectIndex) const;
 
 private:
   void* m_handle;
-  std::vector<Effect> m_effects;
+  std::vector<EffectDescriptor> m_effectDescriptors;
 };
 
 #include <binding.cpp>
@@ -193,17 +267,17 @@ bool EffectLibrary::load(const char* pluginFilename) {
 
   int plugin_count = OfxGetNumberOfPlugins();
   printf("Found %d plugins:\n", plugin_count);
-  m_effects.resize(plugin_count);
+  m_effectDescriptors.resize(plugin_count);
   for (int i = 0 ; i < plugin_count ; ++i) {
-    m_effects[i].setPlugin(OfxGetPlugin(i));
-    printf(" - %s\n", m_effects[i].identifier());
+    m_effectDescriptors[i].setPlugin(OfxGetPlugin(i));
+    printf(" - %s\n", m_effectDescriptors[i].identifier());
   }
 
   return true;
 }
 
 void EffectLibrary::unload() {
-  for (auto& effect : m_effects) {
+  for (auto& effect : m_effectDescriptors) {
     effect.unload();
   }
 
@@ -218,11 +292,11 @@ void EffectLibrary::unload() {
 }
 
 int EffectLibrary::getEffectCount() const {
-  return static_cast<int>(m_effects.size());
+  return static_cast<int>(m_effectDescriptors.size());
 }
 
-const Effect* EffectLibrary::getEffect(int effectIndex) const {
-  return &m_effects[effectIndex];
+const EffectDescriptor* EffectLibrary::getEffectDescriptor(int effectIndex) const {
+  return &m_effectDescriptors[effectIndex];
 }
 
 //--------------------------------------------------------

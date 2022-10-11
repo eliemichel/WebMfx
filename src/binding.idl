@@ -2,12 +2,18 @@ interface Parameter {
   [Const] DOMString identifier();
 };
 
-interface Effect {
+interface EffectInstance {
+  long setParameter(DOMString identifier, float value);
+  long cook();
+};
+
+interface EffectDescriptor {
   [Const] DOMString identifier();
   long load();
   long unload();
   long getParameterCount();
   [Const] Parameter getParameter(long parameterIndex);
+  EffectInstance instantiate();
 };
 
 interface EffectLibrary {
@@ -15,5 +21,5 @@ interface EffectLibrary {
   boolean load(DOMString pluginFilename);
   void unload();
   long getEffectCount();
-  [Const] Effect getEffect(long effectIndex);
+  [Const] EffectDescriptor getEffectDescriptor(long effectIndex);
 };

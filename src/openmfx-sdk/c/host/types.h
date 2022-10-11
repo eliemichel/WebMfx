@@ -24,10 +24,20 @@ typedef struct OfxParamPropertySet {
   char label[256];
 } OfxParamPropertySet;
 
+typedef union OfxParamValueStruct {
+    void *as_pointer;
+    const char *as_const_char;
+    char *as_char;
+    int as_int;
+    double as_double;
+    int as_bool;
+} OfxParamValueStruct;
+
 typedef struct OfxParamStruct {
   int is_valid;
   char name[64];
   char type[64];
+  OfxParamValueStruct values[4];
   OfxParamPropertySet properties;
 } OfxParamStruct;
 
@@ -81,7 +91,7 @@ typedef struct OfxMeshEffectStruct {
 
 void meshInputPropertySetCopy(OfxMeshInputPropertySet *dst, const OfxMeshInputPropertySet *src);
 
-void propertySetCopy(OfxPropertySetHandle dst, const OfxPropertySetHandle src);
+void propertySetCopy(OfxPropertySetHandle dst, const OfxPropertySetStruct *src);
 
 void propertySetInit(OfxPropertySetHandle propertySet, OfxPropertySetType type);
 
@@ -101,7 +111,7 @@ void meshDestroy(OfxMeshHandle mesh);
 
 void meshInputInit(OfxMeshInputHandle input);
 
-void meshInputCopy(OfxMeshInputHandle dst, const OfxMeshInputHandle src);
+void meshInputCopy(OfxMeshInputHandle dst, const OfxMeshInputStruct *src);
 
 void meshInputDestroy(OfxMeshInputHandle input);
 
@@ -109,6 +119,6 @@ void meshEffectInit(OfxMeshEffectHandle meshEffect);
 
 void meshEffectDestroy(OfxMeshEffectHandle meshEffect);
 
-void meshEffectCopy(OfxMeshEffectHandle dst, const OfxMeshEffectHandle src);
+void meshEffectCopy(OfxMeshEffectHandle dst, const OfxMeshEffectStruct *src);
 
 #endif // _types_h_
