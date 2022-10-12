@@ -9,6 +9,10 @@ void meshInputPropertySetCopy(OfxMeshInputPropertySet *dst, const OfxMeshInputPr
   strncpy(dst->label, src->label, 256);
 }
 
+void parameterPropertySetCopy(OfxParamPropertySet *dst, const OfxParamPropertySet *src) {
+  strncpy(dst->label, src->label, 256);
+}
+
 void propertySetCopy(OfxPropertySetHandle dst, const OfxPropertySetStruct *src) {
   assert(dst->type == src->type);
   switch (src->type) {
@@ -88,9 +92,24 @@ void attributeDestroy(OfxMeshAttributePropertySet *attrib) {
   }
 }
 
+void parameterCopy(OfxParamHandle dst, const OfxParamStruct *src) {
+  dst->is_valid = src->is_valid;
+  if (!src->is_valid) return;
+  strncpy(dst->name, src->name, 64);
+  strncpy(dst->type, src->type, 64);
+  memcpy(&dst->values, &src->values, sizeof(src->values));
+  parameterPropertySetCopy(&dst->properties, &src->properties);
+}
+
 void parameterSetInit(OfxParamSetHandle parameterSet) {
   for (int i = 0 ; i < 16 ; ++i) {
     parameterSet->entries[i].is_valid = 0;
+  }
+}
+
+void parameterSetCopy(OfxParamSetHandle dst, const OfxParamSetStruct *src) {
+  for (int i = 0; i < 16; ++i) {
+    parameterCopy(&dst->entries[i], &src->entries[i]);
   }
 }
 
@@ -123,6 +142,7 @@ void meshInputInit(OfxMeshInputHandle input) {
 void meshInputCopy(OfxMeshInputHandle dst, const OfxMeshInputStruct *src) {
   meshInputInit(dst);
   dst->is_valid = src->is_valid;
+  if (!src->is_valid) return;
   strncpy(dst->name, src->name, 256);
   meshInputPropertySetCopy(&dst->properties, &src->properties);
 }
@@ -152,7 +172,8 @@ void meshEffectCopy(OfxMeshEffectHandle dst, const OfxMeshEffectStruct *src) {
     meshEffectDestroy(dst);
   }
   dst->is_valid = src->is_valid;
-  for (int input_index = 0; src->inputs[input_index].is_valid; ++input_index) {
+  for (int input_index = 0; input_index < 16; ++input_index) {
     meshInputCopy(&dst->inputs[input_index], &src->inputs[input_index]);
   }
+  parameterSetCopy(&dst->parameters, &src->parameters);
 }

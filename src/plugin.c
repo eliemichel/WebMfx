@@ -89,31 +89,50 @@ static OfxStatus destroyInstance(OfxMeshEffectHandle instance) {
     return kOfxStatReplyDefault;
 }
 
+static OfxStatus getDoubleParameterValue(OfxParamSetHandle parameters, const char* name, double *value) {
+    OfxParamHandle param;
+    MFX_ENSURE(parameterSuite->paramGetHandle(parameters, name, &param, NULL));
+    MFX_ENSURE(parameterSuite->paramGetValue(param, value));
+    return kOfxStatOK;
+}
+
 static OfxStatus cook(OfxMeshEffectHandle instance) {
     OfxMeshInputHandle output;
-    meshEffectSuite->inputGetHandle(instance, kOfxMeshMainOutput, &output, NULL);
+    MFX_ENSURE(meshEffectSuite->inputGetHandle(instance, kOfxMeshMainOutput, &output, NULL));
 
     OfxMeshHandle output_mesh;
     OfxPropertySetHandle output_mesh_props;
     OfxTime time = 0.0;
-    meshEffectSuite->inputGetMesh(output, time, &output_mesh, &output_mesh_props);
+    MFX_ENSURE(meshEffectSuite->inputGetMesh(output, time, &output_mesh, &output_mesh_props));
+
+    OfxParamSetHandle parameters;
+    MFX_ENSURE(meshEffectSuite->getParamSet(instance, &parameters));
+
+    double dimensions[3];
+    MFX_ENSURE(getDoubleParameterValue(parameters, "width", &dimensions[0]));
+    MFX_ENSURE(getDoubleParameterValue(parameters, "height", &dimensions[1]));
+    MFX_ENSURE(getDoubleParameterValue(parameters, "depth", &dimensions[2]));
 
     int output_point_count = 8;
     int output_face_count = 6;
     int output_corner_count = 4 * output_face_count;
-    propertySuite->propSetInt(output_mesh_props, kOfxMeshPropPointCount, 0, output_point_count);
-    propertySuite->propSetInt(output_mesh_props, kOfxMeshPropCornerCount, 0, output_corner_count);
-    propertySuite->propSetInt(output_mesh_props, kOfxMeshPropFaceCount, 0, output_face_count);
-    propertySuite->propSetInt(output_mesh_props, kOfxMeshPropConstantFaceSize, 0, 4);
+    MFX_ENSURE(propertySuite->propSetInt(output_mesh_props, kOfxMeshPropPointCount, 0, output_point_count));
+    MFX_ENSURE(propertySuite->propSetInt(output_mesh_props, kOfxMeshPropCornerCount, 0, output_corner_count));
+    MFX_ENSURE(propertySuite->propSetInt(output_mesh_props, kOfxMeshPropFaceCount, 0, output_face_count));
+    MFX_ENSURE(propertySuite->propSetInt(output_mesh_props, kOfxMeshPropConstantFaceSize, 0, 4));
 
     OfxPropertySetHandle
         output_point_position_attrib,
         output_corner_point_attrib;
 
-    meshEffectSuite->meshGetAttribute(output_mesh, kOfxMeshAttribPoint,
-                                      kOfxMeshAttribPointPosition, &output_point_position_attrib);
-    meshEffectSuite->meshGetAttribute(output_mesh, kOfxMeshAttribCorner,
-                                      kOfxMeshAttribCornerPoint, &output_corner_point_attrib);
+    MFX_ENSURE(meshEffectSuite->meshGetAttribute(output_mesh,
+                                                 kOfxMeshAttribPoint,
+                                                 kOfxMeshAttribPointPosition,
+                                                 &output_point_position_attrib));
+    MFX_ENSURE(meshEffectSuite->meshGetAttribute(output_mesh,
+                                                 kOfxMeshAttribCorner,
+                                                 kOfxMeshAttribCornerPoint,
+                                                 &output_corner_point_attrib));
 
     static int s_corner_point_data[] = {
         0, 2, 3, 1,
@@ -123,11 +142,11 @@ static OfxStatus cook(OfxMeshEffectHandle instance) {
         3, 2, 6, 7,
         2, 0, 4, 6
     };
-    propertySuite->propSetInt(output_corner_point_attrib, kOfxMeshAttribPropIsOwner, 0, 0);
-    propertySuite->propSetPointer(output_corner_point_attrib, kOfxMeshAttribPropData, 0, (void*)&s_corner_point_data);
-    propertySuite->propSetInt(output_corner_point_attrib, kOfxMeshAttribPropStride, 0, sizeof(int));
+    MFX_ENSURE(propertySuite->propSetInt(output_corner_point_attrib, kOfxMeshAttribPropIsOwner, 0, 0));
+    MFX_ENSURE(propertySuite->propSetPointer(output_corner_point_attrib, kOfxMeshAttribPropData, 0, (void*)&s_corner_point_data));
+    MFX_ENSURE(propertySuite->propSetInt(output_corner_point_attrib, kOfxMeshAttribPropStride, 0, sizeof(int)));
 
-    meshEffectSuite->meshAlloc(output_mesh);
+    MFX_ENSURE(meshEffectSuite->meshAlloc(output_mesh));
 
     MfxAttributeProperties output_point_position_props;
     MFX_ENSURE(mfxPullAttributeProperties(propertySuite, output_point_position_attrib, &output_point_position_props));
@@ -135,11 +154,11 @@ static OfxStatus cook(OfxMeshEffectHandle instance) {
         float *P = (float*)(output_point_position_props.data + output_point_position_props.byte_stride * i);
         for (int k = 0 ; k < 3 ; ++k) {
             int sign = (i >> k) % 2;
-            P[k] = sign * 2.0f - 1.0f;
+            P[k] = (sign - 0.5f) * dimensions[k];
         }
     }
 
-    meshEffectSuite->inputReleaseMesh(output_mesh);
+    MFX_ENSURE(meshEffectSuite->inputReleaseMesh(output_mesh));
     return kOfxStatReplyDefault;
 }
 

@@ -91,6 +91,8 @@ typedef struct OfxMeshEffectStruct {
 
 void meshInputPropertySetCopy(OfxMeshInputPropertySet *dst, const OfxMeshInputPropertySet *src);
 
+void parameterPropertySetCopy(OfxParamPropertySet *dst, const OfxParamPropertySet *src);
+
 void propertySetCopy(OfxPropertySetHandle dst, const OfxPropertySetStruct *src);
 
 void propertySetInit(OfxPropertySetHandle propertySet, OfxPropertySetType type);
@@ -101,7 +103,11 @@ OfxStatus attributeAlloc(OfxMeshAttributePropertySet *attrib, OfxMeshPropertySet
 
 void attributeDestroy(OfxMeshAttributePropertySet *attrib);
 
+void parameterCopy(OfxParamHandle dst, const OfxParamStruct *src);
+
 void parameterSetInit(OfxParamSetHandle parameterSet);
+
+void parameterSetCopy(OfxParamSetHandle dst, const OfxParamSetStruct *src);
 
 void paramInit(OfxParamHandle param);
 
