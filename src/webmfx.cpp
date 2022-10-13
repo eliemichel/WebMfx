@@ -153,6 +153,7 @@ public:
 
   OfxStatus setParameter(const char* identifier, double value);
   OfxStatus cook();
+  // Warning: the mesh is no longer valid after calling cook() again
   Mesh getOutputMesh();
 
 private:
@@ -215,6 +216,15 @@ OfxStatus EffectInstance::setParameter(const char* identifier, double value) {
 }
 
 OfxStatus EffectInstance::cook() {
+  // Clear previous output
+  for (int i = 0 ; i < 16 && m_instance.inputs[i].is_valid ; ++i) {
+    OfxMeshInputStruct *input = &m_instance.inputs[i];
+    if (0 == strcmp(input->name, kOfxMeshMainOutput)) {
+      meshDestroy(&input->mesh);
+      meshInit(&input->mesh);
+    }
+  }
+
   MFX_ENSURE(m_plugin->mainEntry(kOfxMeshEffectActionCook, &m_instance, NULL, NULL));
   return kOfxStatOK;
 }

@@ -41,8 +41,6 @@ OfxStatus paramGetHandle(OfxParamSetHandle paramSet,
         *propertySet = (OfxPropertySetHandle)&param->properties;
       }
       return kOfxStatOK;
-    } else {
-      printf("[host]   - param->name = %s (!= %s)\n", param->name, name);
     }
   }
   return kOfxStatErrBadHandle;

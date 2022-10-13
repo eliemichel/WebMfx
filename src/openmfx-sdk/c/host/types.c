@@ -38,16 +38,22 @@ void attributeInit(OfxMeshAttributePropertySet *attrib) {
 
 OfxStatus attributeAlloc(OfxMeshAttributePropertySet *attrib, OfxMeshPropertySet *props)
 {
-  if (NULL != attrib->data) {
-    return kOfxStatErrBadHandle;
-  }
-
+  printf("[host] attributeAlloc(%s)\n", attrib->name);
   // Don't allocate face size buffer when face size is constant
   if (props->constant_face_size > -1
     && 0 == strcmp(attrib->name, kOfxMeshAttribFaceSize)
     && 0 == strcmp(attrib->attachment, kOfxMeshAttribFace))
   {
     return kOfxStatOK;
+  }
+
+  // Don't allocate non owned attribute
+  if (!attrib->is_owner) {
+    return kOfxStatOK;
+  }
+
+  if (NULL != attrib->data) {
+    return kOfxStatErrExists;
   }
 
   int element_count;
@@ -78,7 +84,7 @@ OfxStatus attributeAlloc(OfxMeshAttributePropertySet *attrib, OfxMeshPropertySet
     return kOfxStatErrMemory;
   }
 
-  printf("[host] attributeAlloc -> %p\n", attrib->data);
+  printf("[host]     -> %p\n", attrib->data);
 
   return kOfxStatOK;
 }

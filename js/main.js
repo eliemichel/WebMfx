@@ -247,8 +247,11 @@ App.prototype.onSelectEffect = function(event) {
     labelElement.innerText = identifier + " ";
     divElement.appendChild(labelElement);
     const inputElement = document.createElement('input');
-    inputElement.type = "text";
+    inputElement.type = "range";
     inputElement.name = identifier;
+    inputElement.min = 0;
+    inputElement.max = 5;
+    inputElement.step = 'any';
     inputElement.value = i;
     inputElement.addEventListener('change', this.onParameterChanged)
     divElement.appendChild(inputElement);
