@@ -280,7 +280,9 @@ App.prototype.cook = function(event) {
     this.effectInstance.setParameter(key, value);
   }
   let status;
+  console.profile("cook");
   status = this.effectInstance.cook();
+  console.profileEnd("cook");
   console.log(`status = ${status}`);
 
   const mesh = this.effectInstance.getOutputMesh();
