@@ -2,19 +2,54 @@
   "version": 5,
   "cmakeMinimumRequired": {
     "major": 3,
-    "minor": 19,
+    "minor": 24,
     "patch": 0
   },
   "configurePresets": [
     {
       "name": "dev",
-      "displayName": "Developper Preset",
-      "toolchainFile": "$env{EMSDK}/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake"
+      "displayName": "Base options for building while developping",
+      "toolchainFile": "$env{EMSDK}/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake",
+      "generator": "",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
     },
     {
       "name": "release",
       "inherits": "dev",
-      "displayName": "Release Preset"
+      "displayName": "Base options for building a distributable release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "windows",
+      "displayName": "Base options for building on Windows",
+      "generator": "Ninja"
+    },
+    {
+      "name": "unix",
+      "displayName": "Base options for building on Linux and MacOS",
+      "generator": "Unix Makefiles"
+    },
+
+
+    {
+      "name": "dev-unix",
+      "inherits": ["dev", "unix"]
+    },
+    {
+      "name": "dev-windows",
+      "inherits": ["dev", "windows"]
+    },
+    {
+      "name": "release-unix",
+      "inherits": ["release", "unix"]
+    },
+    {
+      "name": "release-windows",
+      "inherits": ["release", "windows"]
     }
   ]
 }
