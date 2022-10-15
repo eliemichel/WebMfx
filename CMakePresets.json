@@ -28,24 +28,11 @@
       "displayName": "Base options for building on Windows",
       "generator": "Ninja"
     },
-    {
-      "name": "unix",
-      "displayName": "Base options for building on Linux and MacOS",
-      "generator": "Unix Makefiles"
-    },
 
 
-    {
-      "name": "dev-unix",
-      "inherits": ["dev", "unix"]
-    },
     {
       "name": "dev-windows",
       "inherits": ["dev", "windows"]
-    },
-    {
-      "name": "release-unix",
-      "inherits": ["release", "unix"]
     },
     {
       "name": "release-windows",

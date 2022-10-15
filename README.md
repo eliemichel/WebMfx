@@ -27,7 +27,7 @@ cd build
 cmake .. --preset=XXX
 ```
 
-You can call `cmake --list-presets=all .` to list available presets, but more specific examples are listed in the sections bellow. Once this is done, you can build the project with:
+You can call `cmake --list-presets=all .` to list available presets, like `dev` and `release`. Once this is done, you can build the project with:
 
 ```
 cmake --build .
@@ -35,17 +35,9 @@ cmake --build .
 
 Only this last command needs to be ran when modifying the source code.
 
-### Linux/MacOS/WSL
-
-Make sure `make` is installed.
-
-```
-cmake .. --preset dev-unix
-```
-
 ### Windows
 
-When building with emscripten, it makes no sens of using Visual Studio's build system (and it won't work actually), so we need another one. We suggest the use of [Ninja](https://github.com/ninja-build/ninja/releases/latest) because it is the most lightweight solution.
+Emscripten toolchain does not support MSBuild (Visual Studio's build system), so we need another one. We suggest the use of [Ninja](https://github.com/ninja-build/ninja/releases/latest) because it is the most lightweight and fastest solution.
 
 If `ninja.exe` is available in your PATH (type `where ninja` to check), you may simply call:
 

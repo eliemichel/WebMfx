@@ -1,10 +1,22 @@
-call emcc src/plugin.c ^
+call emcc -c src/plugin.c ^
 	-sSIDE_MODULE ^
-	-sEXPORTED_RUNTIME_METHODS=cwrap ^
 	-I src/openmfx ^
 	-g -gsource-map ^
 	--source-map-base http://127.0.0.1:8888/build/ ^
+	-o build/plugin.c.o
+call emcc -c src/openmfx-sdk/c/common/common.c ^
+	-sSIDE_MODULE ^
+	-I src/openmfx ^
+	-g -gsource-map ^
+	--source-map-base http://127.0.0.1:8888/build/ ^
+	-o build/common.c.o
+call emcc build/plugin.c.o build/common.c.o ^
+	-sSIDE_MODULE ^
+	-sEXPORTED_RUNTIME_METHODS=cwrap ^
+	-sEXPORTED_FUNCTIONS=OfxGetNumberOfPlugins,OfxGetPlugin ^
 	-o build/plugin.wasm
+
+EXIT /B
 
 REM call emcc src/plugin2.c ^
 REM	-sSIDE_MODULE ^

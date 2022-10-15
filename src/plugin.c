@@ -187,8 +187,6 @@ static OfxStatus mainEntry(const char *action,
     return kOfxStatReplyDefault; // this means "unhandled action"
 }
 
-
-
 OfxExport int OfxGetNumberOfPlugins(void) {
     return 1;
 }
