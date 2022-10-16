@@ -20,6 +20,7 @@ function App() {
     pluginInput: document.getElementById('plugin-input'),
     effectIndex: document.getElementById('effect-index'),
     parametersBlock: document.getElementById('parameters'),
+    outputMeshSpreadsheet: document.getElementById('output-mesh-spreadsheet'),
     parameters: [],
   };
 
@@ -178,9 +179,7 @@ App.prototype.cook = function(event) {
     this.effectInstance.setParameter(key, value);
   }
   let status;
-  console.profile("cook");
   status = this.effectInstance.cook();
-  console.profileEnd("cook");
   console.log(`status = ${status}`);
 
   const mesh = this.effectInstance.getOutputMesh();
@@ -209,6 +208,25 @@ App.prototype.cook = function(event) {
   console.log(`faceSizeAttrib.data = ${faceSizeData}`);
 
   this.updateMesh(mesh.pointCount(), mesh.cornerCount(), mesh.faceCount(), pointPositionData, cornerPointData, faceSizeData);
+  this.updateSpreadsheet(mesh.pointCount(), mesh.cornerCount(), mesh.faceCount(), pointPositionData, cornerPointData, faceSizeData);
+}
+
+App.prototype.updateSpreadsheet = function(pointCount, cornerCount, faceCount, pointPositionData, cornerPointData, faceSizeData) {
+  var header = document.createElement('thead');
+  header.innerHTML = "<tr><td>Output Spreadsheet</td></tr>";
+  var body = document.createElement('tbody');
+
+  for (let i = 0 ; i < pointCount ; ++i) {
+    const row = document.createElement('tr');
+    for (let k = 0 ; k < 3 ; ++k) {
+      const cell = document.createElement('td');
+      cell.innerHTML = pointPositionData[3 * i + k];
+      row.appendChild(cell);
+    }
+    body.appendChild(row);
+  }
+
+  this.dom.outputMeshSpreadsheet.replaceChildren(header, body);
 }
 
 App.prototype.updateMesh = function(point_count, corner_count, face_count, point_position_data, corner_point_data, face_size_data) {

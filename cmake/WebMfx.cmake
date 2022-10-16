@@ -40,7 +40,7 @@ endmacro()
 
 macro(add_emscripten_executable Target)
 	set(options)
-	set(oneValueArgs SOURCE_MAP_BASE)
+	set(oneValueArgs SOURCE_MAP_BASE SHELL_FILE)
 	set(multiValueArgs SRC INCLUDE SETTINGS COMPILE_SETTINGS LINK_SETTINGS LINK_OPTIONS BINDINGS)
 	cmake_parse_arguments(ARG "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
 	if (NOT DEFINED ARG_SOURCE_MAP_BASE)
@@ -51,8 +51,10 @@ macro(add_emscripten_executable Target)
 	list(TRANSFORM ARG_COMPILE_SETTINGS PREPEND -s)
 	list(TRANSFORM ARG_LINK_SETTINGS PREPEND -s)
 
+	add_executable(${Target} ${ARG_SRC})
+
 	# First add custom command targets for each binding
-	set(AllBindingTargets "")
+	set(Dependencies "")
 	foreach(Binding ${ARG_BINDINGS})
 		set(idlSpecFile "${CMAKE_CURRENT_SOURCE_DIR}/${Binding}")
 		cmake_path(GET idlSpecFile ROOT_DIRECTORY idlSpecRoot)
@@ -74,14 +76,14 @@ macro(add_emscripten_executable Target)
 				${bindingFilePrefix}.cpp
 				${bindingFilePrefix}.js
 		)
+		add_dependencies(
+			${Target}
+			${BindingTarget}
+		)
 
 		list(APPEND ARG_LINK_OPTIONS --post-js ${bindingFilePrefix}.js)
 		list(APPEND ARG_INCLUDE ${bindingDir})
-		list(APPEND AllBindingTargets ${BindingTarget})
 	endforeach()
-
-	# Then add the main target
-	add_executable(${Target} ${ARG_SRC})
 
 	target_compile_options(
 		${Target}
@@ -95,6 +97,16 @@ macro(add_emscripten_executable Target)
 		--source-map-base ${ARG_SOURCE_MAP_BASE}
 		-Wno-limited-postlink-optimizations
 	)
+
+	if (DEFINED ARG_SHELL_FILE)
+		set(SHELL_FILE "${CMAKE_CURRENT_SOURCE_DIR}/${ARG_SHELL_FILE}")
+		list(APPEND ARG_LINK_OPTIONS --shell-file ${SHELL_FILE})
+		set_property(
+			TARGET ${Target}
+			PROPERTY LINK_DEPENDS
+			${SHELL_FILE}
+		)
+	endif()
 
 	target_link_options(
 		${Target}
@@ -110,12 +122,5 @@ macro(add_emscripten_executable Target)
 		PRIVATE
 			${ARG_INCLUDE}
 	)
-
-	foreach(BindingTarget ${AllBindingTargets})
-		add_dependencies(
-			${Target}
-			${BindingTarget}
-		)
-	endforeach()
 endmacro()
 

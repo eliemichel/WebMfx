@@ -42,8 +42,8 @@ add_emscripten_executable(
 		EXPORTED_RUNTIME_METHODS=cwrap,FS
 		MIN_WEBGL_VERSION=2
 		MAX_WEBGL_VERSION=2
-	LINK_OPTIONS
-		--shell-file ${CMAKE_CURRENT_SOURCE_DIR}/src/html_templates/index.html
+	SHELL_FILE
+		src/html_templates/index.html
 )
 set_target_properties(WebMfxHost PROPERTIES SUFFIX ".html")
 
