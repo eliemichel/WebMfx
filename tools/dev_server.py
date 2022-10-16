@@ -4,9 +4,13 @@ import threading
 import webbrowser
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 
+build_dir = "build"
+if len(sys.argv) > 1:
+    build_dir = sys.argv[1]
+
 ip = "127.0.0.1"
 port = 8888
-url = f"http://{ip}:{port}/build/index.html"
+url = f"http://{ip}:{port}/{build_dir}/WebMfxHost.html"
 
 
 def start_server():
