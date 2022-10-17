@@ -213,14 +213,32 @@ App.prototype.cook = function(event) {
 
 App.prototype.updateSpreadsheet = function(pointCount, cornerCount, faceCount, pointPositionData, cornerPointData, faceSizeData) {
   var header = document.createElement('thead');
-  header.innerHTML = "<tr><td>Output Spreadsheet</td></tr>";
+  const row = document.createElement('tr');
+  let cell = document.createElement('th');
+  cell.innerText = "#";
+  row.appendChild(cell);
+  cell = document.createElement('th');
+  cell.colSpan = "3";
+  cell.innerText = "PointPosition";
+  row.appendChild(cell);
+  header.appendChild(row);
   var body = document.createElement('tbody');
 
+  let cellContent;
   for (let i = 0 ; i < pointCount ; ++i) {
     const row = document.createElement('tr');
+    cell = document.createElement('td');
+    cellContent = document.createElement('div');
+    cellContent.className = "content";
+    cellContent.innerText = i;
+    cell.appendChild(cellContent);
+    row.appendChild(cell);
     for (let k = 0 ; k < 3 ; ++k) {
-      const cell = document.createElement('td');
-      cell.innerHTML = pointPositionData[3 * i + k];
+      cell = document.createElement('td');
+      cellContent = document.createElement('div');
+      cellContent.className = "content";
+      cellContent.innerText = pointPositionData[3 * i + k];
+      cell.appendChild(cellContent);
       row.appendChild(cell);
     }
     body.appendChild(row);

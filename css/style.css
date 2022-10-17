@@ -1,0 +1,30 @@
+.spreadsheet thead th {
+	cursor: pointer;
+}
+.spreadsheet {
+	text-align: center;
+}
+.spreadsheet {
+	font-family: monospace;
+}
+
+.spreadsheet {
+	border-collapse: separate;
+	border-spacing: 0;
+	background-color: #eee;
+	border-right:  1px solid rgba(0, 0, 0, 0.2);
+	border-left:  1px solid rgba(255, 255, 255, 0.6);
+	border-bottom:  1px solid rgba(0, 0, 0, 0.2);
+	border-top:  1px solid rgba(255, 255, 255, 0.6);
+}
+
+.spreadsheet th, .spreadsheet td {
+	cursor: col-resize;
+	border-left:  1px solid rgba(0, 0, 0, 0.2);
+	border-right:  1px solid rgba(255, 255, 255, 0.6);
+	border-top:  1px solid rgba(0, 0, 0, 0.2);
+	border-bottom:  1px solid rgba(255, 255, 255, 0.6);
+	border: none;
+	padding: 0 3px;
+	margin: 0;
+}

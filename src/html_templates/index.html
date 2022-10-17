@@ -45,6 +45,7 @@
       }
 
     </style>
+    <link rel="stylesheet" type="text/css" href="css/style.css" />
   </head>
   <body>
     <hr/>
@@ -75,7 +76,9 @@
     
     <hr/>
     <!--<textarea class="emscripten" id="output" rows="8"></textarea>-->
-    <table id="output-mesh-spreadsheet"></table>
+    <table id="output-mesh-spreadsheet" class="spreadsheet">
+      <thead><tr><td>Output Spreadsheet</td></tr></thead><tbody><tr><td>-1.0276786088943481</td><td>-0.5</td><td>-1</td></tr><tr><td>1.0276786088943481</td><td>-0.5</td><td>-1</td></tr><tr><td>-1.0276786088943481</td><td>0.5</td><td>-1</td></tr><tr><td>1.0276786088943481</td><td>0.5</td><td>-1</td></tr><tr><td>-1.0276786088943481</td><td>-0.5</td><td>1</td></tr><tr><td>1.0276786088943481</td><td>-0.5</td><td>1</td></tr><tr><td>-1.0276786088943481</td><td>0.5</td><td>1</td></tr><tr><td>1.0276786088943481</td><td>0.5</td><td>1</td></tr></tbody>
+    </table>
     <hr/>
     <script type='text/javascript'>
       var statusElement = document.getElementById('status');
@@ -154,5 +157,6 @@
     <script type="text/javascript" src="js/controls/OrbitControls.js"></script>
     <script type="text/javascript" src="js/dat.gui.min.js"></script>
     <script type="text/javascript" src="js/main.js"></script>
+    <script type="text/javascript" src="js/spreadsheet.js"></script>
   </body>
 </html>
