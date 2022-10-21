@@ -97,6 +97,7 @@ static void normalize_v3(float inout[3]) {
 }
 
 static OfxStatus cook(OfxMeshEffectHandle instance) {
+    printf("DEBUG DEBUG cook\n");
     OfxMeshInputHandle input;
     MFX_ENSURE(meshEffectSuite->inputGetHandle(instance, kOfxMeshMainInput, &input, NULL));
 
@@ -141,8 +142,10 @@ static OfxStatus cook(OfxMeshEffectHandle instance) {
 
     MfxAttributeProperties input_point_position_props;
     MFX_ENSURE(mfxPullAttributeProperties(propertySuite, input_point_position_attrib, &input_point_position_props));
-    MfxAttributeProperties output_point_position_props = input_point_position_props;
+    MfxAttributeProperties output_point_position_props;
+    memcpy(&output_point_position_props, &input_point_position_props, sizeof(MfxAttributeProperties));
     output_point_position_props.is_owner = 0;
+    printf("DEBUG DEBUG output_point_position_props.data = %p\n", output_point_position_props.data);
     MFX_ENSURE(mfxPushAttributeProperties(propertySuite, output_point_position_attrib, &output_point_position_props));
 
     
@@ -157,7 +160,8 @@ static OfxStatus cook(OfxMeshEffectHandle instance) {
 
     MfxAttributeProperties input_corner_point_props;
     MFX_ENSURE(mfxPullAttributeProperties(propertySuite, input_corner_point_attrib, &input_corner_point_props));
-    MfxAttributeProperties output_corner_point_props = input_corner_point_props;
+    MfxAttributeProperties output_corner_point_props;
+    memcpy(&output_corner_point_props, &input_corner_point_props, sizeof(MfxAttributeProperties));
     output_corner_point_props.is_owner = 0;
     MFX_ENSURE(mfxPushAttributeProperties(propertySuite, output_corner_point_attrib, &output_corner_point_props));
 
@@ -172,7 +176,8 @@ static OfxStatus cook(OfxMeshEffectHandle instance) {
 
     MfxAttributeProperties input_face_size_props;
     MFX_ENSURE(mfxPullAttributeProperties(propertySuite, input_face_size_attrib, &input_face_size_props));
-    MfxAttributeProperties output_face_size_props = input_face_size_props;
+    MfxAttributeProperties output_face_size_props;
+    memcpy(&output_face_size_props, &input_face_size_props, sizeof(MfxAttributeProperties));
     output_face_size_props.is_owner = 0;
     MFX_ENSURE(mfxPushAttributeProperties(propertySuite, output_face_size_attrib, &output_face_size_props));
 
@@ -243,6 +248,7 @@ static OfxStatus cook(OfxMeshEffectHandle instance) {
         copy_v3(normal, faceNormal);
     }
 
+    MFX_ENSURE(meshEffectSuite->inputReleaseMesh(input_mesh));
     MFX_ENSURE(meshEffectSuite->inputReleaseMesh(output_mesh));
     return kOfxStatReplyDefault;
 }

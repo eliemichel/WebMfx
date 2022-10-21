@@ -107,7 +107,7 @@ void attributeDestroy(OfxMeshAttributePropertySet *attrib) {
 
 void attributeShallowCopy(OfxMeshAttributePropertySet *dst, const OfxMeshAttributePropertySet *src) {
   dst->is_valid = src->is_valid;
-  if (src->is_valid != 0) return;
+  if (src->is_valid != 1) return;
   strncpy(dst->name, src->name, 64);
   strncpy(dst->attachment, src->attachment, 64);
   dst->component_count = src->component_count;

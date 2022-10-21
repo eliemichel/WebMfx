@@ -78,6 +78,7 @@ public:
   char* attachment() const;
   char* identifier() const;
   int componentCount() const;
+  int byteStride() const;
   char* type() const;
   void* data() const;
 
@@ -99,6 +100,10 @@ char* Attribute::identifier() const {
 
 int Attribute::componentCount() const {
   return m_attribute->component_count;
+}
+
+int Attribute::byteStride() const {
+  return m_attribute->byte_stride;
 }
 
 char* Attribute::type() const {

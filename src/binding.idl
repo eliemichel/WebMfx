@@ -6,13 +6,14 @@ interface Attribute {
   [Const] DOMString attachment();
   [Const] DOMString identifier();
   long componentCount();
+  long byteStride();
   [Const] DOMString type();
   VoidPtr data();
 };
 
 interface Mesh {
   void Mesh();
-  
+
   boolean isValid();
   long pointCount();
   long cornerCount();

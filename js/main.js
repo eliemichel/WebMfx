@@ -228,8 +228,9 @@ App.prototype.onInputChanged = async function(event) {
 
   this.inputMeshes[event.target.name].loadObj(filename);
   const mesh = this.inputMeshes[event.target.name];
-  this.updateMesh(mesh);
-  //this.cook();
+  //this.updateMesh(mesh);
+  //this.updateSpreadsheet(mesh);
+  this.cook();
 }
 
 App.prototype.cook = function(event) {
@@ -237,6 +238,8 @@ App.prototype.cook = function(event) {
   for (let key in this.inputMeshes) {
     const mesh = this.inputMeshes[key];
     this.effectInstance.setInputMesh(key, mesh);
+    const pointPositionAttrib = mesh.getAttribute("OfxMeshAttribPoint", "OfxMeshAttribPointPosition");
+    console.log("input pointPositionAttrib: " + pointPositionAttrib.data().ptr);
   }
   for (let key in this.parameterValues) {
     const value = this.parameterValues[key];
@@ -247,22 +250,26 @@ App.prototype.cook = function(event) {
   console.log(`status = ${status}`);
 
   const mesh = this.effectInstance.getOutputMesh();
+
+  const pointPositionAttrib = mesh.getAttribute("OfxMeshAttribPoint", "OfxMeshAttribPointPosition");
+  console.log("output pointPositionAttrib: " + pointPositionAttrib.data().ptr);
   
   this.updateMesh(mesh);
-  //this.updateSpreadsheet(mesh);
+  this.updateSpreadsheet(mesh);
 }
 
 App.prototype.updateSpreadsheet = function(mesh) {
-  let pointColumns = [{ name: "#", componentCount: 1, data: 'range' }];
-  let cornerColumns = [{ name: "#", componentCount: 1, data: 'range' }];
-  let faceColumns = [{ name: "#", componentCount: 1, data: 'range' }];
-  let meshColumns = [{ name: "#", componentCount: 1, data: 'range' }];
+  let pointColumns = [{ name: "#", componentCount: 1, getData: (i) => i }];
+  let cornerColumns = [{ name: "#", componentCount: 1, getData: (i) => i }];
+  let faceColumns = [{ name: "#", componentCount: 1, getData: (i) => i }];
+  let meshColumns = [{ name: "#", componentCount: 1, getData: (i) => i }];
   const attributeCount = mesh.attributeCount();
   for (let i = 0 ; i < attributeCount ; ++i) {
     const attrib = mesh.getAttributeByIndex(i);
     const identifier = attrib.identifier();
     const attachment = attrib.attachment();
     const componentCount = attrib.componentCount();
+    const byteStride = attrib.byteStride();
     const type = attrib.type();
 
     let columns, elementCount;
@@ -280,18 +287,23 @@ App.prototype.updateSpreadsheet = function(mesh) {
       elementCount = 1;
     }
 
-    let XArray;
+    const dataView = new DataView(Module.HEAP8.buffer, attrib.data().ptr);
+
+    let getValue, componentByteSize;
     if (type == "OfxMeshAttribTypeUByte") {
-      XArray = Uint8Array;
+      getValue = dataView.getUint8.bind(dataView);
+      componentByteSize = 1;
     } else if (type == "OfxMeshAttribTypeInt") {
-      XArray = Int32Array;
+      getValue = dataView.getInt32.bind(dataView);
+      componentByteSize = 4;
     } else if (type == "OfxMeshAttribTypeFloat") {
-      XArray = Float32Array;
+      getValue = dataView.getFloat32.bind(dataView);
+      componentByteSize = 4;
     } else {
       console.error("Unknown attribute type: " + type);
     }
 
-    let data = new XArray(Module.HEAP8.buffer, attrib.data().ptr, componentCount * elementCount);
+    const getData = (index, component) => getValue(byteStride * index + componentByteSize * component, true);
     
     if (mesh.constantFaceSize() > -1 && attachment == "OfxMeshAttribFace" && identifier == "OfxMeshAttribFaceSize") {
       data = new Int32Array(mesh.faceCount());
@@ -306,7 +318,7 @@ App.prototype.updateSpreadsheet = function(mesh) {
     columns.push({
       name: displayedIdentifier,
       componentCount: componentCount,
-      data: data,
+      getData: getData,
     });
   }
   
@@ -317,80 +329,84 @@ App.prototype.updateSpreadsheet = function(mesh) {
 }
 
 App.prototype.updateMesh = function(mesh) {
+  const pointCount = mesh.pointCount();
+  const cornerCount = mesh.cornerCount();
+  const faceCount = mesh.faceCount();
+  const constantFaceSize = mesh.constantFaceSize();
+
   console.log(mesh.isValid());
-  console.log(` - ${mesh.pointCount()} points`);
-  console.log(` - ${mesh.cornerCount()} corners`);
-  console.log(` - ${mesh.faceCount()} faces`);
-  console.log(` - constantFaceSize = ${mesh.constantFaceSize()}`);
+  console.log(` - ${pointCount} points`);
+  console.log(` - ${cornerCount} corners`);
+  console.log(` - ${faceCount} faces`);
+  console.log(` - constantFaceSize = ${constantFaceSize}`);
 
   const pointPositionAttrib = mesh.getAttribute("OfxMeshAttribPoint", "OfxMeshAttribPointPosition");
-  const pointPositionData = new Float32Array(Module.HEAP8.buffer, pointPositionAttrib.data().ptr, 3 * mesh.pointCount());
-  console.log(`pointPositionAttrib.data = ${pointPositionData}`);
+  const pointPositionStride = pointPositionAttrib.byteStride();
+  const pointPositionDataView = new DataView(Module.HEAP8.buffer, pointPositionAttrib.data().ptr);
+  const getPointPosition = (index, component) => pointPositionDataView.getFloat32(pointPositionStride * index + 4 * component, true);
 
   const cornerPointAttrib = mesh.getAttribute("OfxMeshAttribCorner", "OfxMeshAttribCornerPoint");
-  const cornerPointData = new Int32Array(Module.HEAP8.buffer, cornerPointAttrib.data().ptr, mesh.cornerCount());
-  console.log(`cornerPointAttrib.data = ${cornerPointData}`);
+  const cornerPointStride = cornerPointAttrib.byteStride();
+  const cornerPointDataView = new DataView(Module.HEAP8.buffer, cornerPointAttrib.data().ptr);
+  const getCornerPoint = index => cornerPointDataView.getInt32(cornerPointStride * index, true);
 
-  let faceSizeData;
+  let getFaceSize;
   if (mesh.constantFaceSize() == -1) {
     const faceSizeAttrib = mesh.getAttribute("OfxMeshAttribFace", "OfxMeshAttribFaceSize");
-    faceSizeData = new Int32Array(Module.HEAP8.buffer, faceSizeAttrib.data().ptr, mesh.faceCount());
+    const faceSizeStride = faceSizeAttrib.byteStride();
+    const faceSizeDataView = new DataView(Module.HEAP8.buffer, faceSizeAttrib.data().ptr);
+    getFaceSize = index => faceSizeDataView.getInt32(faceSizeStride * index, true);
   } else {
-    faceSizeData = new Int32Array(mesh.faceCount());
-    faceSizeData.fill(mesh.constantFaceSize());
+    getFaceSize = index => mesh.constantFaceSize();
   }
-  console.log(`faceSizeAttrib.data = ${faceSizeData}`);
 
-  this.updateThreeJsMesh(mesh.pointCount(), mesh.cornerCount(), mesh.faceCount(), pointPositionData, cornerPointData, faceSizeData, mesh.constantFaceSize());
-}
-
-App.prototype.updateThreeJsMesh = function(point_count, corner_count, face_count, point_position_data, corner_point_data, face_size_data) {
-  let triangle_count = 0;
-  for (let f = 0 ; f < face_count ; ++f) {
-    const size = face_size_data[f];
+  // Convert to ThreeJs-ready triangles
+  let triangleCount = 0;
+  for (let f = 0 ; f < faceCount ; ++f) {
+    const size = getFaceSize(f);
     if (size == 3) {
-      triangle_count += 1;
+      triangleCount += 1;
     } else if (size == 4) {
-      triangle_count += 2;
+      triangleCount += 2;
     } else {
       console.error(`Unsupported face size in face #${f}: ${size}`);
     }
   }
-  const tesselated_corner_point_data = new Uint32Array(3 * triangle_count);
-  let triangle_index = 0;
-  let corner_index = 0;
-  for (let f = 0 ; f < face_count ; ++f) {
-    const size = face_size_data[f];
+  const tesselatedCornerPointData = new Uint32Array(3 * triangleCount);
+  let triangleIndex = 0;
+  let cornerIndex = 0;
+  for (let f = 0 ; f < faceCount ; ++f) {
+    const size = getFaceSize(f);
 
     for (let k = 0 ; k < 3 ; ++k) {
-      tesselated_corner_point_data[3 * triangle_index + k] = corner_point_data[corner_index + k];
+      tesselatedCornerPointData[3 * triangleIndex + k] = getCornerPoint(cornerIndex + k);
     }
-    ++triangle_index;
+    ++triangleIndex;
 
     if (size == 4) {
       for (let k = 0 ; k < 3 ; ++k) {
-        tesselated_corner_point_data[3 * triangle_index + k] = corner_point_data[corner_index + (k + 2) % 4];
+        tesselatedCornerPointData[3 * triangleIndex + k] = getCornerPoint(cornerIndex + (k + 2) % 4);
       }
-      ++triangle_index;
+      ++triangleIndex;
     }
 
-    corner_index += size;
+    cornerIndex += size;
   }
 
   // Expand the index buffer and compute normals
-  const tesselated_point_position_data = new Float32Array(3 * 3 * triangle_count);
-  const tesselated_point_normal_data = new Float32Array(3 * 3 * triangle_count);
+  const tesselatedPointPositionData = new Float32Array(3 * 3 * triangleCount);
+  const tesselatedPointNormalData = new Float32Array(3 * 3 * triangleCount);
   const pos = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];
   const ab = new THREE.Vector3();
   const ac = new THREE.Vector3();
   const normal = new THREE.Vector3();
-  for (let t = 0 ; t < triangle_count ; ++t) {
+  for (let t = 0 ; t < triangleCount ; ++t) {
     for (let c = 0 ; c < 3 ; ++c) {
-      const p = tesselated_corner_point_data[3 * t + c];
+      const p = tesselatedCornerPointData[3 * t + c];
       for (let k = 0 ; k < 3 ; ++k) {
-        const value = point_position_data[3 * p + k];
+        const value = getPointPosition(p, k);
         pos[c].setComponent(k, value);
-        tesselated_point_position_data[3 * (3 * t + c) + k] = value;
+        tesselatedPointPositionData[3 * (3 * t + c) + k] = value;
       }
     }
     ab.subVectors(pos[1], pos[0]);
@@ -399,15 +415,14 @@ App.prototype.updateThreeJsMesh = function(point_count, corner_count, face_count
     normal.normalize();
     for (let c = 0 ; c < 3 ; ++c) {
       for (let k = 0 ; k < 3 ; ++k) {
-        tesselated_point_normal_data[3 * (3 * t + c) + k] = normal.getComponent(k);
+        tesselatedPointNormalData[3 * (3 * t + c) + k] = normal.getComponent(k);
       }
     }
   }
 
   // Update geometry
-  this.pointGeometry.setAttribute('position', new THREE.BufferAttribute(tesselated_point_position_data, 3));
-  this.pointGeometry.setAttribute('normal', new THREE.BufferAttribute(tesselated_point_normal_data, 3));
-  //this.pointGeometry.setIndex(new THREE.BufferAttribute(tesselated_corner_point_data, 1));
+  this.pointGeometry.setAttribute('position', new THREE.BufferAttribute(tesselatedPointPositionData, 3));
+  this.pointGeometry.setAttribute('normal', new THREE.BufferAttribute(tesselatedPointNormalData, 3));
   this.needRender = true;
 }
 

@@ -122,8 +122,8 @@ updateSpreadsheet = function(spreadsheet, columnDescriptions, rowCount) {
                 cellContent = document.createElement('div');
                 cellContent.className = "content";
                 cellContent.innerText =
-                    desc.data == 'range'
-                    ? i
+                    desc.getData
+                    ? desc.getData(i, k)
                     : desc.data[desc.componentCount * i + k];
                 cellContentWrapper = document.createElement('div');
                 cellContentWrapper.className = "content-wrapper";
