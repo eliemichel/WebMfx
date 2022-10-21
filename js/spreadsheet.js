@@ -89,28 +89,57 @@ function setupSpreadsheet(spreadsheet) {
     }));
 
     // Allow text overflow in cells
-    spreadsheet.querySelectorAll('.spreadsheet tbody tr:nth-child(1) td').forEach(td => {
-        td.width = `${td.getBoundingClientRect().width}px`;
+    spreadsheet.querySelectorAll('.spreadsheet tbody tr:nth-child(1) td').forEach((td, i) => {
+        let width = td.getBoundingClientRect().width;
+        width = Math.max(width, i == 0 ? 20 : 40);
+        td.width = `${width}px`;
         td.style.maxWidth = td.width;
     });
     spreadsheet.classList.add('sized');
 }
 
+updateSpreadsheet = function(spreadsheet, columnDescriptions, rowCount) {
+    var header = document.createElement('thead');
+    const row = document.createElement('tr');
+    let cell = document.createElement('th');
+    columnDescriptions.forEach((desc, i) => {
+        cell = document.createElement('th');
+        if (i == 0) cell.className = "spreadsheet-active";
+        cell.colSpan = desc.componentCount;
+        cell.innerText = desc.name;
+        row.appendChild(cell);
+    });
+    header.appendChild(row);
+    var body = document.createElement('tbody');
+
+    let cellContent;
+    for (let i = 0 ; i < rowCount ; ++i) {
+        const row = document.createElement('tr');
+
+        columnDescriptions.forEach(desc => {
+            for (let k = 0 ; k < desc.componentCount ; ++k) {
+                cell = document.createElement('td');
+                cellContent = document.createElement('div');
+                cellContent.className = "content";
+                cellContent.innerText =
+                    desc.data == 'range'
+                    ? i
+                    : desc.data[desc.componentCount * i + k];
+                cellContentWrapper = document.createElement('div');
+                cellContentWrapper.className = "content-wrapper";
+                cellContentWrapper.appendChild(cellContent);
+                cell.appendChild(cellContentWrapper);
+                row.appendChild(cell);
+            }
+        });
+
+        body.appendChild(row);
+    }
+
+    spreadsheet.replaceChildren(header, body);
+    setupSpreadsheet(spreadsheet);
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.spreadsheet').forEach(setupSpreadsheet);
 });
-
-// Test data
-pointPositionData = [
-   -1,  -0.5,    -1.7776786088943481,
-   1.7776786088943481,  -0.5,    -1,
-   -1.7776786088943481, 0.5682, -1,
-   1.7776786088943481,  0.5, -1,
-   -1.7776786088943481, -0.5,    1,
-   1.7776786088943481,  -0.5,    1,
-   -1.7776786088943481, 0.5, 1,
-   1.7776786088943481,  0.5, 1,
-];
-cornerPointData = [];
-faceSizeData = [];
-app.updateSpreadsheet(8, 12, 6, pointPositionData, cornerPointData, faceSizeData);

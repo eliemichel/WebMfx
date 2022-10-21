@@ -92,6 +92,19 @@ OfxStatus inputReleaseMesh(OfxMeshHandle meshHandle)
   return kOfxStatOK;
 }
 
+OfxStatus meshGetAttributeByIndex(OfxMeshHandle meshHandle,
+                                  int index,
+                                  OfxPropertySetHandle *attributeHandle)
+{
+  printf("[host] meshGetAttributeByIndex(mesh %p, %d)\n", meshHandle, index);
+  if (index < 0 || index >= 32) return kOfxStatErrBadIndex;
+  OfxMeshAttributePropertySet* attribute = &meshHandle->attributes[index];
+  if (!attribute->is_valid) return kOfxStatErrBadIndex;
+
+  *attributeHandle = (OfxPropertySetHandle)attribute;
+  return kOfxStatOK;
+}
+
 OfxStatus meshGetAttribute(OfxMeshHandle meshHandle,
                            const char *attachment,
                            const char *name,
@@ -172,6 +185,7 @@ const OfxMeshEffectSuiteV1 meshEffectSuiteV1 = {
   inputGetMesh, // OfxStatus (*inputGetMesh)(OfxMeshInputHandle input,
   inputReleaseMesh, // OfxStatus (*inputReleaseMesh)(OfxMeshHandle meshHandle);
   attributeDefine, // OfxStatus(*attributeDefine)(OfxMeshHandle meshHandle,
+  meshGetAttributeByIndex,
   meshGetAttribute, // OfxStatus(*meshGetAttribute)(OfxMeshHandle meshHandle,
   NULL, // OfxStatus (*meshGetPropertySet)(OfxMeshHandle mesh,
   meshAlloc, // OfxStatus (*meshAlloc)(OfxMeshHandle meshHandle);

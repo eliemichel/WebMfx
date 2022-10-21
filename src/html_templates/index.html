@@ -76,9 +76,12 @@
     
     <hr/>
     <!--<textarea class="emscripten" id="output" rows="8"></textarea>-->
-    <table id="output-mesh-spreadsheet" class="spreadsheet">
-      <thead><tr><td>Output Spreadsheet</td></tr></thead><tbody><tr><td>-1.0276786088943481</td><td>-0.5</td><td>-1</td></tr><tr><td>1.0276786088943481</td><td>-0.5</td><td>-1</td></tr><tr><td>-1.0276786088943481</td><td>0.5</td><td>-1</td></tr><tr><td>1.0276786088943481</td><td>0.5</td><td>-1</td></tr><tr><td>-1.0276786088943481</td><td>-0.5</td><td>1</td></tr><tr><td>1.0276786088943481</td><td>-0.5</td><td>1</td></tr><tr><td>-1.0276786088943481</td><td>0.5</td><td>1</td></tr><tr><td>1.0276786088943481</td><td>0.5</td><td>1</td></tr></tbody>
-    </table>
+    <div id="output-spreadsheets">
+      <table class="point spreadsheet"></table>
+      <table class="corner spreadsheet"></table>
+      <table class="face spreadsheet"></table>
+      <table class="mesh spreadsheet"></table>
+    </div>
     <hr/>
     <script type='text/javascript'>
       var statusElement = document.getElementById('status');

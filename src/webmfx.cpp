@@ -73,6 +73,10 @@ public:
   Attribute(OfxMeshAttributePropertySet *attribute = nullptr);
   MOVE_ONLY(Attribute)
 
+  char* attachment() const;
+  char* identifier() const;
+  int componentCount() const;
+  char* type() const;
   void* data() const;
 
 private:
@@ -82,6 +86,23 @@ private:
 Attribute::Attribute(OfxMeshAttributePropertySet *attribute)
   : m_attribute(attribute)
 {}
+
+char* Attribute::attachment() const {
+  return m_attribute->attachment;
+}
+
+char* Attribute::identifier() const {
+  return m_attribute->name;
+}
+
+int Attribute::componentCount() const {
+  return m_attribute->component_count;
+}
+
+char* Attribute::type() const {
+  return m_attribute->type;
+}
+
 
 void* Attribute::data() const {
   return m_attribute ? m_attribute->data : nullptr;
@@ -99,7 +120,9 @@ public:
   int cornerCount() const;
   int faceCount() const;
   int constantFaceSize() const;
-  Attribute getAttribute(const char *attachement, const char *identifier) const;
+  int attributeCount() const;
+  Attribute getAttribute(const char *attachment, const char *identifier) const;
+  Attribute getAttributeByIndex(int attributeIndex) const;
 
 private:
   OfxMeshStruct *m_mesh;
@@ -129,13 +152,30 @@ int Mesh::constantFaceSize() const {
   return m_mesh->properties.constant_face_size;
 }
 
-Attribute Mesh::getAttribute(const char *attachement, const char *identifier) const {
+int Mesh::attributeCount() const {
+  int count = 0;
+  for (; count < 32 && m_mesh->attributes[count].is_valid ; ++count) {}
+  return count;
+}
+
+Attribute Mesh::getAttribute(const char *attachment, const char *identifier) const {
   OfxMeshAttributePropertySet *attrib;
-  OfxStatus status = meshGetAttribute(m_mesh, attachement, identifier, (OfxPropertySetHandle*)&attrib);
+  OfxStatus status = meshGetAttribute(m_mesh, attachment, identifier, (OfxPropertySetHandle*)&attrib);
   if (kOfxStatOK == status) {
     return Attribute(attrib);
   } else {
-    printf("Error: could not find the attribute %s for attachement %s!\n", identifier, attachement);
+    printf("Error: could not find the attribute %s for attachment %s!\n", identifier, attachment);
+    return Attribute();
+  }
+}
+
+Attribute Mesh::getAttributeByIndex(int attributeIndex) const {
+  OfxMeshAttributePropertySet *attrib;
+  OfxStatus status = meshGetAttributeByIndex(m_mesh, attributeIndex, (OfxPropertySetHandle*)&attrib);
+  if (kOfxStatOK == status) {
+    return Attribute(attrib);
+  } else {
+    printf("Error: could not find the attribute #%d!\n", attributeIndex);
     return Attribute();
   }
 }

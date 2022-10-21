@@ -20,7 +20,10 @@ function App() {
     pluginInput: document.getElementById('plugin-input'),
     effectIndex: document.getElementById('effect-index'),
     parametersBlock: document.getElementById('parameters'),
-    outputMeshSpreadsheet: document.getElementById('output-mesh-spreadsheet'),
+    outputPointSpreadsheet: document.querySelector('#output-spreadsheets .point'),
+    outputCornerSpreadsheet: document.querySelector('#output-spreadsheets .corner'),
+    outputFaceSpreadsheet: document.querySelector('#output-spreadsheets .face'),
+    outputMeshSpreadsheet: document.querySelector('#output-spreadsheets .mesh'),
     parameters: [],
   };
 
@@ -208,51 +211,71 @@ App.prototype.cook = function(event) {
   console.log(`faceSizeAttrib.data = ${faceSizeData}`);
 
   this.updateMesh(mesh.pointCount(), mesh.cornerCount(), mesh.faceCount(), pointPositionData, cornerPointData, faceSizeData);
-  this.updateSpreadsheet(mesh.pointCount(), mesh.cornerCount(), mesh.faceCount(), pointPositionData, cornerPointData, faceSizeData);
+  this.updateSpreadsheet(mesh, pointPositionData, cornerPointData, faceSizeData);
 }
 
-App.prototype.updateSpreadsheet = function(pointCount, cornerCount, faceCount, pointPositionData, cornerPointData, faceSizeData) {
-  var header = document.createElement('thead');
-  const row = document.createElement('tr');
-  let cell = document.createElement('th');
-  cell.innerText = "#";
-  cell.className = "spreadsheet-active";
-  row.appendChild(cell);
-  cell = document.createElement('th');
-  cell.colSpan = "3";
-  cell.innerText = "PointPosition";
-  row.appendChild(cell);
-  header.appendChild(row);
-  var body = document.createElement('tbody');
+App.prototype.updateSpreadsheet = function(mesh, pointPositionData, cornerPointData, faceSizeData) {
+  let pointColumns = [{ name: "#", componentCount: 1, data: 'range' }];
+  let cornerColumns = [{ name: "#", componentCount: 1, data: 'range' }];
+  let faceColumns = [{ name: "#", componentCount: 1, data: 'range' }];
+  let meshColumns = [{ name: "#", componentCount: 1, data: 'range' }];
+  const attributeCount = mesh.attributeCount();
+  for (let i = 0 ; i < attributeCount ; ++i) {
+    const attrib = mesh.getAttributeByIndex(i);
+    const identifier = attrib.identifier();
+    const attachment = attrib.attachment();
+    const componentCount = attrib.componentCount();
+    const type = attrib.type();
 
-  let cellContent;
-  for (let i = 0 ; i < pointCount ; ++i) {
-    const row = document.createElement('tr');
-    cell = document.createElement('td');
-    cellContent = document.createElement('div');
-    cellContent.className = "content";
-    cellContent.innerText = i;
-    cellContentWrapper = document.createElement('div');
-    cellContentWrapper.className = "content-wrapper";
-    cellContentWrapper.appendChild(cellContent);
-    cell.appendChild(cellContentWrapper);
-    row.appendChild(cell);
-    for (let k = 0 ; k < 3 ; ++k) {
-      cell = document.createElement('td');
-      cellContent = document.createElement('div');
-      cellContent.className = "content";
-      cellContent.innerText = pointPositionData[3 * i + k];
-      cellContentWrapper = document.createElement('div');
-      cellContentWrapper.className = "content-wrapper";
-      cellContentWrapper.appendChild(cellContent);
-      cell.appendChild(cellContentWrapper);
-      row.appendChild(cell);
+    let columns, elementCount;
+    if (attachment == "OfxMeshAttribPoint") {
+      columns = pointColumns;
+      elementCount = mesh.pointCount();
+    } else if (attachment == "OfxMeshAttribCorner") {
+      columns = cornerColumns;
+      elementCount = mesh.cornerCount();
+    } else if (attachment == "OfxMeshAttribFace") {
+      columns = faceColumns;
+      elementCount = mesh.faceCount();
+    } else {
+      columns = meshColumns;
+      elementCount = 1;
     }
-    body.appendChild(row);
-  }
 
-  this.dom.outputMeshSpreadsheet.replaceChildren(header, body);
-  setupSpreadsheet(this.dom.outputMeshSpreadsheet);
+    let XArray;
+    if (type == "OfxMeshAttribTypeUByte") {
+      XArray = Uint8Array;
+    } else if (type == "OfxMeshAttribTypeInt") {
+      XArray = Int32Array;
+    } else if (type == "OfxMeshAttribTypeFloat") {
+      XArray = Float32Array;
+    } else {
+      console.error("Unknown attribute type: " + type);
+    }
+
+    let data = new XArray(Module.HEAP8.buffer, attrib.data().ptr, componentCount * elementCount);
+    
+    if (mesh.constantFaceSize() > -1 && attachment == "OfxMeshAttribFace" && identifier == "OfxMeshAttribFaceSize") {
+      data = new Int32Array(mesh.faceCount());
+      data.fill(mesh.constantFaceSize());
+    }
+
+    let displayedIdentifier = identifier;
+    if (identifier.startsWith(attachment)) {
+      displayedIdentifier = identifier.substring(attachment.length);
+    }
+
+    columns.push({
+      name: displayedIdentifier,
+      componentCount: componentCount,
+      data: data,
+    });
+  }
+  
+  updateSpreadsheet(this.dom.outputPointSpreadsheet, pointColumns, mesh.pointCount());
+  updateSpreadsheet(this.dom.outputCornerSpreadsheet, cornerColumns, mesh.cornerCount());
+  updateSpreadsheet(this.dom.outputFaceSpreadsheet, faceColumns, mesh.faceCount());
+  updateSpreadsheet(this.dom.outputMeshSpreadsheet, meshColumns, 1);
 }
 
 App.prototype.updateMesh = function(point_count, corner_count, face_count, point_position_data, corner_point_data, face_size_data) {

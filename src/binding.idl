@@ -3,6 +3,10 @@ interface Parameter {
 };
 
 interface Attribute {
+  DOMString attachment();
+  DOMString identifier();
+  long componentCount();
+  DOMString type();
   VoidPtr data();
 };
 
@@ -12,7 +16,9 @@ interface Mesh {
   long cornerCount();
   long faceCount();
   long constantFaceSize();
-  [Value] Attribute getAttribute(DOMString attachement, DOMString identifier);
+  long attributeCount();
+  [Value] Attribute getAttribute(DOMString attachment, DOMString identifier);
+  [Value] Attribute getAttributeByIndex(long attributeIndex);
 };
 
 interface EffectInstance {
