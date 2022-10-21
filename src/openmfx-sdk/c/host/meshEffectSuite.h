@@ -51,6 +51,9 @@ OfxStatus attributeDefine(OfxMeshHandle meshHandle,
                           const char *semantic,
                           OfxPropertySetHandle *attributeHandle);
 
+OfxStatus meshGetPropertySet(OfxMeshHandle mesh,
+                             OfxPropertySetHandle *propertySet);
+
 OfxStatus meshAlloc(OfxMeshHandle meshHandle);
 
 OfxStatus defaultAttributesDefine(OfxMeshHandle mesh);

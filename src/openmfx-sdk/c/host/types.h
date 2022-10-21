@@ -93,6 +93,8 @@ void meshInputPropertySetCopy(OfxMeshInputPropertySet *dst, const OfxMeshInputPr
 
 void parameterPropertySetCopy(OfxParamPropertySet *dst, const OfxParamPropertySet *src);
 
+void meshPropertySetCopy(OfxMeshPropertySet *dst, const OfxMeshPropertySet *src);
+
 void propertySetCopy(OfxPropertySetHandle dst, const OfxPropertySetStruct *src);
 
 void propertySetInit(OfxPropertySetHandle propertySet, OfxPropertySetType type);
@@ -102,6 +104,8 @@ void attributeInit(OfxMeshAttributePropertySet *attrib);
 OfxStatus attributeAlloc(OfxMeshAttributePropertySet *attrib, OfxMeshPropertySet *props);
 
 void attributeDestroy(OfxMeshAttributePropertySet *attrib);
+
+void attributeShallowCopy(OfxMeshAttributePropertySet *dst, const OfxMeshAttributePropertySet *src);
 
 void parameterCopy(OfxParamHandle dst, const OfxParamStruct *src);
 
@@ -114,6 +118,8 @@ void paramInit(OfxParamHandle param);
 void meshInit(OfxMeshHandle mesh);
 
 void meshDestroy(OfxMeshHandle mesh);
+
+void meshShallowCopy(OfxMeshHandle dst, const OfxMeshStruct *src);
 
 void meshInputInit(OfxMeshInputHandle input);
 

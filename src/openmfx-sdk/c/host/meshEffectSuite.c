@@ -64,7 +64,7 @@ OfxStatus inputGetHandle(OfxMeshEffectHandle meshEffect,
 OfxStatus inputGetPropertySet(OfxMeshInputHandle input,
                               OfxPropertySetHandle *propertySet)
 {
-  printf("[host] inputGetPropertySet(meshEffect %p)\n", input);
+  printf("[host] inputGetPropertySet(input %p)\n", input);
   if (input->is_valid != 1) {
     return kOfxStatErrBadHandle;
   }
@@ -168,6 +168,18 @@ OfxStatus attributeDefine(OfxMeshHandle meshHandle,
   return kOfxStatOK;
 }
 
+OfxStatus meshGetPropertySet(OfxMeshHandle mesh,
+                             OfxPropertySetHandle *propertySet)
+{
+  printf("[host] meshGetPropertySet(mesh %p)\n", mesh);
+  if (NULL == mesh) {
+    return kOfxStatErrBadHandle;
+  }
+
+  *propertySet = (OfxPropertySetHandle)&mesh->properties;
+  return kOfxStatOK;
+}
+
 OfxStatus meshAlloc(OfxMeshHandle meshHandle)
 {
   printf("[host] meshAlloc(mesh %p)\n", meshHandle);
@@ -199,7 +211,7 @@ const OfxMeshEffectSuiteV1 meshEffectSuiteV1 = {
   attributeDefine, // OfxStatus(*attributeDefine)(OfxMeshHandle meshHandle,
   meshGetAttributeByIndex,
   meshGetAttribute, // OfxStatus(*meshGetAttribute)(OfxMeshHandle meshHandle,
-  NULL, // OfxStatus (*meshGetPropertySet)(OfxMeshHandle mesh,
+  meshGetPropertySet, // OfxStatus (*meshGetPropertySet)(OfxMeshHandle mesh,
   meshAlloc, // OfxStatus (*meshAlloc)(OfxMeshHandle meshHandle);
   NULL, // int (*abort)(OfxMeshEffectHandle meshEffect);
 };

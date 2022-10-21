@@ -13,6 +13,13 @@ void parameterPropertySetCopy(OfxParamPropertySet *dst, const OfxParamPropertySe
   strncpy(dst->label, src->label, 256);
 }
 
+void meshPropertySetCopy(OfxMeshPropertySet *dst, const OfxMeshPropertySet *src) {
+  dst->point_count = src->point_count;
+  dst->corner_count = src->corner_count;
+  dst->face_count = src->face_count;
+  dst->constant_face_size = src->constant_face_size;
+}
+
 void propertySetCopy(OfxPropertySetHandle dst, const OfxPropertySetStruct *src) {
   assert(dst->type == src->type);
   switch (src->type) {
@@ -98,6 +105,19 @@ void attributeDestroy(OfxMeshAttributePropertySet *attrib) {
   }
 }
 
+void attributeShallowCopy(OfxMeshAttributePropertySet *dst, const OfxMeshAttributePropertySet *src) {
+  dst->is_valid = src->is_valid;
+  if (src->is_valid != 0) return;
+  strncpy(dst->name, src->name, 64);
+  strncpy(dst->attachment, src->attachment, 64);
+  dst->component_count = src->component_count;
+  strncpy(dst->type, src->type, 64);
+  strncpy(dst->semantic, src->semantic, 64);
+  dst->data = src->data; // this is where it is shallow
+  dst->byte_stride = src->byte_stride;
+  dst->is_owner = src->is_owner;
+}
+
 void parameterCopy(OfxParamHandle dst, const OfxParamStruct *src) {
   dst->is_valid = src->is_valid;
   if (!src->is_valid) return;
@@ -136,6 +156,13 @@ void meshDestroy(OfxMeshHandle mesh) {
   for (int i = 0 ; i < 32 && mesh->attributes[i].is_valid ; ++i) {
     attributeDestroy(&mesh->attributes[i]);
   }
+}
+
+void meshShallowCopy(OfxMeshHandle dst, const OfxMeshStruct *src) {
+  for (int i = 0 ; i < 32 ; ++i) {
+    attributeShallowCopy(&dst->attributes[i], &src->attributes[i]);
+  }
+  meshPropertySetCopy(&dst->properties, &src->properties);
 }
 
 void meshInputInit(OfxMeshInputHandle input) {

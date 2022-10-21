@@ -9,6 +9,7 @@
 
 #include <string.h>
 #include <stdio.h>
+#include <math.h>
 
 /*****************************************/
 
@@ -58,6 +59,41 @@ static OfxStatus createInstance(OfxMeshEffectHandle instance) {
 
 static OfxStatus destroyInstance(OfxMeshEffectHandle instance) {
     return kOfxStatReplyDefault;
+}
+
+static void cross_product(const float a[3], const float b[3], float out[3]) {
+    out[0] = a[1] * b[2] - a[2] * b[1];
+    out[1] = a[2] * b[0] - a[0] * b[2];
+    out[2] = a[0] * b[1] - a[1] * b[0];
+}
+
+static void copy_v3(const float a[3], float out[3]) {
+    out[0] = a[0];
+    out[1] = a[1];
+    out[2] = a[2];
+}
+
+static void add_v3(float inout[3], const float a[3]) {
+    inout[0] += a[0];
+    inout[1] += a[1];
+    inout[2] += a[2];
+}
+
+static void sub_v3_v3(const float a[3], const float b[3], float out[3]) {
+    out[0] = a[0] - b[0];
+    out[1] = a[1] - b[1];
+    out[2] = a[2] - b[2];
+}
+
+static float dot_product(const float a[3], const float b[3]) {
+    return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+}
+
+static void normalize_v3(float inout[3]) {
+    float normalizer = 1.0f / sqrt(dot_product(inout, inout));
+    inout[0] *= normalizer;
+    inout[1] *= normalizer;
+    inout[2] *= normalizer;
 }
 
 static OfxStatus cook(OfxMeshEffectHandle instance) {
@@ -158,12 +194,53 @@ static OfxStatus cook(OfxMeshEffectHandle instance) {
     // 4. Fill attribute data
 
     MFX_ENSURE(mfxPullAttributeProperties(propertySuite, output_point_position_attrib, &output_point_position_props));
-    for (int i = 0 ; i < output_mesh_props.point_count ; ++i) {
-        float *P = (float*)(output_point_position_props.data + output_point_position_props.byte_stride * i);
-        for (int k = 0 ; k < 3 ; ++k) {
-            int sign = (i >> k) % 2;
-            P[k] = (sign - 0.5f);
+    MFX_ENSURE(mfxPullAttributeProperties(propertySuite, output_corner_point_attrib, &output_corner_point_props));
+    MFX_ENSURE(mfxPullAttributeProperties(propertySuite, output_face_size_attrib, &output_face_size_props));
+    if (output_mesh_props.constant_face_size > -1) {
+        output_face_size_props.data = &output_mesh_props.constant_face_size;
+        output_face_size_props.byte_stride = 0;
+    }
+
+    MfxAttributeProperties output_face_normal_props;
+    MFX_ENSURE(mfxPullAttributeProperties(propertySuite, output_face_normal_attrib, &output_face_normal_props));
+
+    float barycenter[3];
+    float normal[3];
+    float N[3];
+    float A[3];
+    float B[3];
+    int corner = 0, size = 0;
+    for (int face = 0 ; face < output_mesh_props.face_count ; ++face, corner += size) {
+        size = *(int*)(output_face_size_props.data + output_face_size_props.byte_stride * face);
+        float normalizer = 1.0f / size;
+        float *prev_P;
+
+        barycenter[0] = barycenter[1] = barycenter[2] = 0.0f;
+        for (int i = 0 ; i < size ; ++i) {
+            int point = *(int*)(output_corner_point_props.data + output_corner_point_props.byte_stride * (corner + i));
+            float *P = (float*)(output_point_position_props.data + output_point_position_props.byte_stride * point);
+            add_v3(barycenter, P);
+            prev_P = P;
         }
+        for (int k = 0 ; k < 3 ; ++k) {
+            barycenter[k] *= normalizer;
+        }
+
+        normal[0] = normal[1] = normal[2] = 0.0f;
+        for (int i = 0 ; i < size ; ++i) {
+            int point = *(int*)(output_corner_point_props.data + output_corner_point_props.byte_stride * (corner + i));
+            float *P = (float*)(output_point_position_props.data + output_point_position_props.byte_stride * point);
+            sub_v3_v3(prev_P, barycenter, A);
+            sub_v3_v3(P, barycenter, B);
+            cross_product(A, B, N);
+            normalize_v3(N);
+            add_v3(normal, N);
+            prev_P = P;
+        }
+        normalize_v3(normal);
+
+        float *faceNormal = (float*)(output_face_normal_props.data + output_face_normal_props.byte_stride * face);
+        copy_v3(normal, faceNormal);
     }
 
     MFX_ENSURE(meshEffectSuite->inputReleaseMesh(output_mesh));

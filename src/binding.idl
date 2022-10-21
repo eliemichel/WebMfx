@@ -3,14 +3,16 @@ interface Parameter {
 };
 
 interface Attribute {
-  DOMString attachment();
-  DOMString identifier();
+  [Const] DOMString attachment();
+  [Const] DOMString identifier();
   long componentCount();
-  DOMString type();
+  [Const] DOMString type();
   VoidPtr data();
 };
 
 interface Mesh {
+  void Mesh();
+  
   boolean isValid();
   long pointCount();
   long cornerCount();
@@ -19,11 +21,20 @@ interface Mesh {
   long attributeCount();
   [Value] Attribute getAttribute(DOMString attachment, DOMString identifier);
   [Value] Attribute getAttributeByIndex(long attributeIndex);
+
+  long loadObj(DOMString filename);
+  long unload();
+};
+
+interface Input {
+  [Const] DOMString identifier();
+  [Const] DOMString label();
 };
 
 interface EffectInstance {
   long setParameter(DOMString identifier, float value);
   long cook();
+  long setInputMesh(DOMString identifier, Mesh mesh);
   [Value] Mesh getOutputMesh();
 };
 
@@ -32,7 +43,9 @@ interface EffectDescriptor {
   long load();
   long unload();
   long getParameterCount();
-  [Const] Parameter getParameter(long parameterIndex);
+  [Value] Parameter getParameter(long parameterIndex);
+  long getInputCount();
+  [Value] Input getInput(long inputIndex);
   EffectInstance instantiate();
 };
 

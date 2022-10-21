@@ -20,11 +20,14 @@ function App() {
     viewer: document.getElementById('viewer'),
     pluginInput: document.getElementById('plugin-input'),
     effectIndex: document.getElementById('effect-index'),
+    inputsBlock: document.getElementById('inputs'),
     parametersBlock: document.getElementById('parameters'),
     outputPointSpreadsheet: document.querySelector('#output-spreadsheets .point'),
     outputCornerSpreadsheet: document.querySelector('#output-spreadsheets .corner'),
     outputFaceSpreadsheet: document.querySelector('#output-spreadsheets .face'),
     outputMeshSpreadsheet: document.querySelector('#output-spreadsheets .mesh'),
+    cookBtn: document.getElementById('cook-btn'),
+    inputs: [],
     parameters: [],
   };
 
@@ -35,6 +38,8 @@ function App() {
   this.onRuntimeInitialized = this.onRuntimeInitialized.bind(this);
   this.onSelectEffect = this.onSelectEffect.bind(this);
   this.onParameterChanged = this.onParameterChanged.bind(this);
+  this.onInputChanged = this.onInputChanged.bind(this);
+  this.cook = this.cook.bind(this);
 }
 
 App.prototype.onDomLoaded = function() {
@@ -132,14 +137,47 @@ App.prototype.onSelectEffect = function(event) {
   const effectIndex = this.effectIndices[identifier];
   if (effectIndex === undefined) return;
 
+  for (let key in this.inputMeshes) {
+    const mesh = this.inputMeshes[key];
+    mesh.unload();
+  }
+
   this.effectDescriptor = this.effectLibrary.getEffectDescriptor(effectIndex);
   let status;
   status = this.effectDescriptor.load();
   console.log(`status = ${status}`);
+  const inputCount = this.effectDescriptor.getInputCount();
+  console.log(`inputCount = ${inputCount}`);
   const parameterCount = this.effectDescriptor.getParameterCount();
   console.log(`parameterCount = ${parameterCount}`);
 
-  const paramInputs = [];
+  // Setup inputs UI
+  const inputControllers = [];
+  this.dom.parameters = [];
+  this.inputMeshes = {};
+  for (let i = 0 ; i < inputCount ; ++i) {
+    const inputDesc = this.effectDescriptor.getInput(i);
+    const identifier = inputDesc.identifier();
+    if (identifier == "OfxMeshMainOutput") continue;
+    const label = inputDesc.label();
+    const divElement = document.createElement('div');
+    const labelElement = document.createElement('label');
+    labelElement.for = identifier;
+    labelElement.innerText = label + " ";
+    divElement.appendChild(labelElement);
+    const ui = document.createElement('input');
+    ui.type = "file";
+    ui.name = identifier;
+    ui.addEventListener('change', this.onInputChanged)
+    divElement.appendChild(ui);
+    inputControllers.push(divElement);
+    this.dom.inputs.push(ui);
+    this.inputMeshes[identifier] = new Module.Mesh();
+  }
+  this.dom.inputsBlock.replaceChildren(...inputControllers);
+
+  // Setup parameter UI
+  const paramControllers = [];
   this.dom.parameters = [];
   this.parameterValues = {};
   for (let i = 0 ; i < parameterCount ; ++i) {
@@ -149,20 +187,22 @@ App.prototype.onSelectEffect = function(event) {
     labelElement.for = identifier;
     labelElement.innerText = identifier + " ";
     divElement.appendChild(labelElement);
-    const inputElement = document.createElement('input');
-    inputElement.type = "range";
-    inputElement.name = identifier;
-    inputElement.min = 0;
-    inputElement.max = 5;
-    inputElement.step = 'any';
-    inputElement.value = i;
-    inputElement.addEventListener('change', this.onParameterChanged)
-    divElement.appendChild(inputElement);
-    paramInputs.push(divElement);
-    this.dom.parameters.push(inputElement);
+    const ui = document.createElement('input');
+    ui.type = "range";
+    ui.name = identifier;
+    ui.min = 0;
+    ui.max = 5;
+    ui.step = 'any';
+    ui.value = i;
+    ui.addEventListener('change', this.onParameterChanged)
+    divElement.appendChild(ui);
+    paramControllers.push(divElement);
+    this.dom.parameters.push(ui);
     this.parameterValues[identifier] = i;
   }
-  this.dom.parametersBlock.replaceChildren(...paramInputs);
+  this.dom.parametersBlock.replaceChildren(...paramControllers);
+
+  this.dom.cookBtn.addEventListener('click', this.cook);
 
   if (this.effectInstance !== null) {
     Module.destroy(this.effectInstance);
@@ -176,8 +216,28 @@ App.prototype.onParameterChanged = function(event) {
   this.cook();
 }
 
+App.prototype.onInputChanged = async function(event) {
+  console.log(`input changed: ${event.target.name}`)
+
+  // Load plugin file into WebAssembly's memory
+  const filename = 'input__' + event.target.name + '.obj';
+  const filedata = new Uint8Array(await event.target.files[0].arrayBuffer());
+  const f = Module.FS.open(filename, 'w');
+  Module.FS.write(f, filedata, 0, filedata.length);
+  Module.FS.close(f);
+
+  this.inputMeshes[event.target.name].loadObj(filename);
+  const mesh = this.inputMeshes[event.target.name];
+  this.updateMesh(mesh);
+  //this.cook();
+}
+
 App.prototype.cook = function(event) {
   console.log(`Cooking...`);
+  for (let key in this.inputMeshes) {
+    const mesh = this.inputMeshes[key];
+    this.effectInstance.setInputMesh(key, mesh);
+  }
   for (let key in this.parameterValues) {
     const value = this.parameterValues[key];
     this.effectInstance.setParameter(key, value);
@@ -187,35 +247,12 @@ App.prototype.cook = function(event) {
   console.log(`status = ${status}`);
 
   const mesh = this.effectInstance.getOutputMesh();
-  console.log(mesh.isValid());
-  console.log(` - ${mesh.pointCount()} points`);
-  console.log(` - ${mesh.cornerCount()} corners`);
-  console.log(` - ${mesh.faceCount()} faces`);
-  console.log(` - constantFaceSize = ${mesh.constantFaceSize()}`);
-
-  const pointPositionAttrib = mesh.getAttribute("OfxMeshAttribPoint", "OfxMeshAttribPointPosition");
-  const pointPositionData = new Float32Array(Module.HEAP8.buffer, pointPositionAttrib.data().ptr, 3 * mesh.pointCount());
-  console.log(`pointPositionAttrib.data = ${pointPositionData}`);
-
-  const cornerPointAttrib = mesh.getAttribute("OfxMeshAttribCorner", "OfxMeshAttribCornerPoint");
-  const cornerPointData = new Int32Array(Module.HEAP8.buffer, cornerPointAttrib.data().ptr, mesh.cornerCount());
-  console.log(`cornerPointAttrib.data = ${cornerPointData}`);
-
-  let faceSizeData;
-  if (mesh.constantFaceSize() == -1) {
-    const faceSizeAttrib = mesh.getAttribute("OfxMeshAttribFace", "OfxMeshAttribFaceSize");
-    const faceSizeData = new Int32Array(Module.HEAP8.buffer, faceSizeAttrib.data().ptr, mesh.faceCount());
-  } else {
-    faceSizeData = new Int32Array(mesh.faceCount());
-    faceSizeData.fill(mesh.constantFaceSize());
-  }
-  console.log(`faceSizeAttrib.data = ${faceSizeData}`);
-
-  this.updateMesh(mesh.pointCount(), mesh.cornerCount(), mesh.faceCount(), pointPositionData, cornerPointData, faceSizeData);
-  this.updateSpreadsheet(mesh, pointPositionData, cornerPointData, faceSizeData);
+  
+  this.updateMesh(mesh);
+  //this.updateSpreadsheet(mesh);
 }
 
-App.prototype.updateSpreadsheet = function(mesh, pointPositionData, cornerPointData, faceSizeData) {
+App.prototype.updateSpreadsheet = function(mesh) {
   let pointColumns = [{ name: "#", componentCount: 1, data: 'range' }];
   let cornerColumns = [{ name: "#", componentCount: 1, data: 'range' }];
   let faceColumns = [{ name: "#", componentCount: 1, data: 'range' }];
@@ -279,7 +316,35 @@ App.prototype.updateSpreadsheet = function(mesh, pointPositionData, cornerPointD
   updateSpreadsheet(this.dom.outputMeshSpreadsheet, meshColumns, 1);
 }
 
-App.prototype.updateMesh = function(point_count, corner_count, face_count, point_position_data, corner_point_data, face_size_data) {
+App.prototype.updateMesh = function(mesh) {
+  console.log(mesh.isValid());
+  console.log(` - ${mesh.pointCount()} points`);
+  console.log(` - ${mesh.cornerCount()} corners`);
+  console.log(` - ${mesh.faceCount()} faces`);
+  console.log(` - constantFaceSize = ${mesh.constantFaceSize()}`);
+
+  const pointPositionAttrib = mesh.getAttribute("OfxMeshAttribPoint", "OfxMeshAttribPointPosition");
+  const pointPositionData = new Float32Array(Module.HEAP8.buffer, pointPositionAttrib.data().ptr, 3 * mesh.pointCount());
+  console.log(`pointPositionAttrib.data = ${pointPositionData}`);
+
+  const cornerPointAttrib = mesh.getAttribute("OfxMeshAttribCorner", "OfxMeshAttribCornerPoint");
+  const cornerPointData = new Int32Array(Module.HEAP8.buffer, cornerPointAttrib.data().ptr, mesh.cornerCount());
+  console.log(`cornerPointAttrib.data = ${cornerPointData}`);
+
+  let faceSizeData;
+  if (mesh.constantFaceSize() == -1) {
+    const faceSizeAttrib = mesh.getAttribute("OfxMeshAttribFace", "OfxMeshAttribFaceSize");
+    faceSizeData = new Int32Array(Module.HEAP8.buffer, faceSizeAttrib.data().ptr, mesh.faceCount());
+  } else {
+    faceSizeData = new Int32Array(mesh.faceCount());
+    faceSizeData.fill(mesh.constantFaceSize());
+  }
+  console.log(`faceSizeAttrib.data = ${faceSizeData}`);
+
+  this.updateThreeJsMesh(mesh.pointCount(), mesh.cornerCount(), mesh.faceCount(), pointPositionData, cornerPointData, faceSizeData, mesh.constantFaceSize());
+}
+
+App.prototype.updateThreeJsMesh = function(point_count, corner_count, face_count, point_position_data, corner_point_data, face_size_data) {
   let triangle_count = 0;
   for (let f = 0 ; f < face_count ; ++f) {
     const size = face_size_data[f];

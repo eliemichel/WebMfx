@@ -20,6 +20,8 @@ extern "C" {
 #include <ofxParam.h>
 
 // Other includes
+#define TINYOBJLOADER_IMPLEMENTATION
+#include "tiny_obj_loader.h"
 #include <cstdio>
 #include <SDL/SDL.h>
 #include <dlfcn.h>
@@ -49,21 +51,21 @@ OfxHost* getGlobalHost() {
  */
 class Parameter {
 public:
-  Parameter(OfxParamStruct* backend);
+  Parameter(const OfxParamStruct *parameter = nullptr);
   MOVE_ONLY(Parameter)
 
   const char* identifier() const;
 
 private:
-  OfxParamStruct* m_backend;
+  const OfxParamStruct * m_parameter;
 };
 
-Parameter::Parameter(OfxParamStruct* backend)
-  : m_backend(backend)
+Parameter::Parameter(const OfxParamStruct *parameter)
+  : m_parameter(parameter)
 {}
 
 const char* Parameter::identifier() const {
-  return m_backend->name;
+  return m_parameter->name;
 }
 
 //--------------------------------------------------------
@@ -110,6 +112,32 @@ void* Attribute::data() const {
 
 //--------------------------------------------------------
 
+class Input {
+public:
+  Input(const OfxMeshInputStruct* input = nullptr);
+  MOVE_ONLY(Input)
+
+  const char* identifier() const;
+  const char* label() const;
+
+private:
+  const OfxMeshInputStruct* m_input;
+};
+
+Input::Input(const OfxMeshInputStruct* input)
+  : m_input(input)
+{}
+
+const char* Input::identifier() const {
+  return m_input->name;
+}
+
+const char* Input::label() const {
+  return m_input->properties.label;
+}
+
+//--------------------------------------------------------
+
 class Mesh {
 public:
   Mesh(OfxMeshStruct *mesh = nullptr);
@@ -124,12 +152,28 @@ public:
   Attribute getAttribute(const char *attachment, const char *identifier) const;
   Attribute getAttributeByIndex(int attributeIndex) const;
 
+  /**
+   * Load a mesh from a file, in which case this object points to a newly
+   * allocated mesh that must be freed by calling unload().
+   * If a file was already loaded, it is unloaded automatically.
+   */
+  OfxStatus loadObj(const char* filename);
+  /**
+   * unload MUST be called when the mesh has been previously loaded from a mesh
+   * and MUST NOT be called otherwise.
+   */
+  OfxStatus unload();
+
+  OfxMeshStruct* raw() const { return m_mesh; }
+
 private:
   OfxMeshStruct *m_mesh;
+  bool m_loaded; // tells whether the mesh has been allocated when loading it from a file
 };
 
 Mesh::Mesh(OfxMeshStruct *mesh)
   : m_mesh(mesh)
+  , m_loaded(false)
 {}
 
 bool Mesh::isValid() const {
@@ -180,6 +224,108 @@ Attribute Mesh::getAttributeByIndex(int attributeIndex) const {
   }
 }
 
+OfxStatus Mesh::loadObj(const char* filename) {
+  if (m_loaded) unload();
+
+  tinyobj::attrib_t attrib;
+  std::vector<tinyobj::shape_t> shapes;
+  std::vector<tinyobj::material_t> materials;
+  std::string err;
+  bool triangulate = false;
+  const char *mtl_basedir = NULL;
+  bool status = tinyobj::LoadObj(&attrib, &shapes, &materials, &err, filename, mtl_basedir, triangulate);
+  if (!status) {
+    printf("Error: could not load OBJ file: %s\n", err.c_str());
+    return kOfxStatErrFatal;
+  }
+
+  m_mesh = new OfxMeshStruct();
+  meshInit(m_mesh);
+
+  int& pointCount = m_mesh->properties.point_count;
+  int& cornerCount = m_mesh->properties.corner_count;
+  int& faceCount = m_mesh->properties.face_count;
+  m_mesh->properties.constant_face_size = -1;
+
+  pointCount = (int)attrib.vertices.size();
+
+  cornerCount = 0;
+  faceCount = 0;
+  for (const auto& sh : shapes) {
+    cornerCount += (int)sh.mesh.indices.size();
+    faceCount += (int)sh.mesh.num_face_vertices.size();
+  }
+
+  // 1. Point Position
+  OfxMeshAttributePropertySet *pointPositionAttrib;
+  attributeDefine(m_mesh,
+                  kOfxMeshAttribPoint,
+                  kOfxMeshAttribPointPosition,
+                  3,
+                  kOfxMeshAttribTypeFloat,
+                  nullptr,
+                  (OfxPropertySetHandle*)&pointPositionAttrib);
+  
+  size_t buffsize = attrib.vertices.size() * sizeof(float);
+  pointPositionAttrib->data = new char[buffsize];
+  memcpy(pointPositionAttrib->data, attrib.vertices.data(), buffsize);
+  pointPositionAttrib->byte_stride = 3 * sizeof(float);
+  pointPositionAttrib->is_owner = true;
+
+  // 2. Corner Point
+  OfxMeshAttributePropertySet *cornerPointAttrib;
+  attributeDefine(m_mesh,
+                  kOfxMeshAttribCorner,
+                  kOfxMeshAttribCornerPoint,
+                  1,
+                  kOfxMeshAttribTypeInt,
+                  nullptr,
+                  (OfxPropertySetHandle*)&cornerPointAttrib);
+  
+  size_t indexSize = sizeof(tinyobj::index_t);
+  cornerPointAttrib->data = new char[cornerCount * indexSize];
+  cornerPointAttrib->byte_stride = indexSize;
+  cornerPointAttrib->is_owner = true;
+  size_t offset = 0;
+  for (const auto& sh : shapes) {
+    memcpy(cornerPointAttrib->data + offset * indexSize, sh.mesh.indices.data(), sh.mesh.indices.size() * indexSize);
+    offset += sh.mesh.indices.size();
+  }
+
+  // 3. Face Size
+  OfxMeshAttributePropertySet *faceSizeAttrib;
+  attributeDefine(m_mesh,
+                  kOfxMeshAttribFace,
+                  kOfxMeshAttribFaceSize,
+                  1,
+                  kOfxMeshAttribTypeInt,
+                  nullptr,
+                  (OfxPropertySetHandle*)&faceSizeAttrib);
+  
+  faceSizeAttrib->data = new char[faceCount * sizeof(int)];
+  faceSizeAttrib->byte_stride = sizeof(int);
+  faceSizeAttrib->is_owner = true;
+  offset = 0;
+  for (const auto& sh : shapes) {
+    for (unsigned char faceSize : sh.mesh.num_face_vertices) {
+      int *ptr = (int*)(faceSizeAttrib->data + offset * sizeof(int));
+      *ptr = (int)faceSize; // we convert because at the moment the backend does not support uint8 but in theory it should not be needed
+      ++offset;
+    }
+  }
+
+  m_loaded = true;
+  return kOfxStatOK;
+}
+
+OfxStatus Mesh::unload() {
+  if (!m_loaded) return kOfxStatErrBadHandle;
+  meshDestroy(m_mesh);
+  delete m_mesh;
+  m_mesh = nullptr;
+  m_loaded = false;
+  return kOfxStatOK;
+}
 
 //--------------------------------------------------------
 
@@ -193,6 +339,9 @@ public:
 
   OfxStatus setParameter(const char* identifier, double value);
   OfxStatus cook();
+
+  // Warning: the mesh buffers must remain valid until cook() is called
+  OfxStatus setInputMesh(const char *identifier, const Mesh *mesh);
   // Warning: the mesh is no longer valid after calling cook() again
   Mesh getOutputMesh();
 
@@ -220,7 +369,10 @@ public:
   OfxStatus unload();
 
   int getParameterCount() const;
-  const Parameter* getParameter(int parameterIndex) const;
+  Parameter getParameter(int parameterIndex) const;
+
+  int getInputCount() const;
+  Input getInput(int inputIndex) const;
 
   EffectInstance *instantiate() const;
 
@@ -231,7 +383,6 @@ public:
 private:
   const OfxPlugin* m_plugin = nullptr;
   OfxMeshEffectStruct m_descriptor;
-  std::vector<Parameter> m_parameters;
   bool m_loaded = false;
 };
 
@@ -267,6 +418,17 @@ OfxStatus EffectInstance::cook() {
 
   MFX_ENSURE(m_plugin->mainEntry(kOfxMeshEffectActionCook, &m_instance, NULL, NULL));
   return kOfxStatOK;
+}
+
+OfxStatus EffectInstance::setInputMesh(const char *identifier, const Mesh *mesh) {
+  for (int i = 0 ; i < 16 && m_instance.inputs[i].is_valid ; ++i) {
+    OfxMeshInputStruct *input = &m_instance.inputs[i];
+    if (0 == strcmp(input->name, identifier)) {
+      meshShallowCopy(&input->mesh, mesh->raw());
+      return kOfxStatOK;
+    }
+  }
+  return kOfxStatErrBadHandle;
 }
 
 Mesh EffectInstance::getOutputMesh() {
@@ -313,20 +475,11 @@ OfxStatus EffectDescriptor::load() {
   meshEffectInit(&m_descriptor);
   MFX_ENSURE(m_plugin->mainEntry(kOfxActionDescribe, &m_descriptor, NULL, NULL));
   m_loaded = true;
-
-  // Wraps parameters into a user exposed type
-  int n = getParameterCount();
-  m_parameters.reserve(n);
-  for (int i = 0 ; i < n ; ++i) {
-    m_parameters.push_back(Parameter(&m_descriptor.parameters.entries[i]));
-  }
-
   return kOfxStatOK;
 }
 
 OfxStatus EffectDescriptor::unload() {
   if (!m_loaded) return kOfxStatOK;
-  m_parameters.clear();
   meshEffectDestroy(&m_descriptor);
   MFX_ENSURE(m_plugin->mainEntry(kOfxActionUnload, NULL, NULL, NULL));
   m_loaded = false;
@@ -342,8 +495,21 @@ int EffectDescriptor::getParameterCount() const {
   return count;
 }
 
-const Parameter* EffectDescriptor::getParameter(int parameterIndex) const {
-  return &m_parameters[parameterIndex];
+Parameter EffectDescriptor::getParameter(int parameterIndex) const {
+  return Parameter(&m_descriptor.parameters.entries[parameterIndex]);
+}
+
+int EffectDescriptor::getInputCount() const {
+  assert(m_loaded);
+  int count = 0;
+  for (int i = 0 ; i < 16 && m_descriptor.inputs[i].is_valid ; ++i) {
+    ++count;
+  }
+  return count;
+}
+
+Input EffectDescriptor::getInput(int inputIndex) const {
+  return Input(&m_descriptor.inputs[inputIndex]);
 }
 
 EffectInstance* EffectDescriptor::instantiate() const {
