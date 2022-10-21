@@ -24,6 +24,9 @@ OfxStatus inputGetHandle(OfxMeshEffectHandle meshEffect,
                          OfxMeshInputHandle *inputHandle,
                          OfxPropertySetHandle *propertySet);
 
+OfxStatus inputGetPropertySet(OfxMeshInputHandle input,
+                              OfxPropertySetHandle *propertySet);
+
 OfxStatus inputGetMesh(OfxMeshInputHandle input,
                        OfxTime time,
                        OfxMeshHandle *meshHandle,

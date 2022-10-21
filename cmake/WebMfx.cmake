@@ -3,7 +3,7 @@ set(EMSDK $ENV{EMSDK} CACHE STRING "Path to the root of Emscripten SDK")
 macro(add_webmfx_library Target)
 	set(options)
 	set(oneValueArgs SOURCE_MAP_BASE)
-	set(multiValueArgs SRC INCLUDE)
+	set(multiValueArgs SRC INCLUDE LIBS)
 	cmake_parse_arguments(ARG "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
 	if (NOT DEFINED ARG_SOURCE_MAP_BASE)
 		set(ARG_SOURCE_MAP_BASE http://127.0.0.1:8888/build/)
@@ -33,6 +33,8 @@ macro(add_webmfx_library Target)
 		-sSIDE_MODULE=1
 		$<$<CONFIG:Debug>:${DEBUG_LINK_OPTS}>
 	)
+
+	target_link_libraries(${Target} PRIVATE ${ARG_LIBS})
 
 	target_include_directories(${Target} PRIVATE ${ARG_INCLUDE})
 endmacro()
@@ -123,4 +125,3 @@ macro(add_emscripten_executable Target)
 			${ARG_INCLUDE}
 	)
 endmacro()
-

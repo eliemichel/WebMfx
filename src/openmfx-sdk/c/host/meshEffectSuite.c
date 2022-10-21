@@ -61,6 +61,18 @@ OfxStatus inputGetHandle(OfxMeshEffectHandle meshEffect,
   return kOfxStatErrBadIndex;
 }
 
+OfxStatus inputGetPropertySet(OfxMeshInputHandle input,
+                              OfxPropertySetHandle *propertySet)
+{
+  printf("[host] inputGetPropertySet(meshEffect %p)\n", input);
+  if (input->is_valid != 1) {
+    return kOfxStatErrBadHandle;
+  }
+
+  *propertySet = (OfxPropertySetHandle)&input->properties;
+  return kOfxStatOK;
+}
+
 OfxStatus inputGetMesh(OfxMeshInputHandle input,
                        OfxTime time,
                        OfxMeshHandle *meshHandle,
@@ -180,7 +192,7 @@ const OfxMeshEffectSuiteV1 meshEffectSuiteV1 = {
   getParamSet, // OfxStatus (*getParamSet)(OfxMeshEffectHandle meshEffect,
   inputDefine, // OfxStatus (*inputDefine)(OfxMeshEffectHandle meshEffect,
   inputGetHandle, // OfxStatus (*inputGetHandle)(OfxMeshEffectHandle meshEffect,
-  NULL, // OfxStatus (*inputGetPropertySet)(OfxMeshInputHandle input,
+  inputGetPropertySet, // OfxStatus (*inputGetPropertySet)(OfxMeshInputHandle input,
   NULL, // OfxStatus (*inputRequestAttribute)(OfxMeshInputHandle input,
   inputGetMesh, // OfxStatus (*inputGetMesh)(OfxMeshInputHandle input,
   inputReleaseMesh, // OfxStatus (*inputReleaseMesh)(OfxMeshHandle meshHandle);

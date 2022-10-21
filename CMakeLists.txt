@@ -9,11 +9,26 @@ include(cmake/WebMfx.cmake)
 
 # Plugins
 
+set(PLUGIN_C_SDK_SRC
+	src/openmfx-sdk/c/common/common.c
+	src/openmfx-sdk/c/plugin/attribute.c
+	src/openmfx-sdk/c/plugin/mesh.c
+)
+
 add_webmfx_library(
-	ExamplePlugin1
+	BoxPlugin
 	SRC
-		src/plugin.c
-		src/openmfx-sdk/c/common/common.c
+		src/BoxPlugin.c
+		${PLUGIN_C_SDK_SRC}
+	INCLUDE
+		src/openmfx
+)
+
+add_webmfx_library(
+	ComputeNormalsPlugin
+	SRC
+		src/ComputeNormalsPlugin.c
+		${PLUGIN_C_SDK_SRC}
 	INCLUDE
 		src/openmfx
 )

@@ -17,6 +17,7 @@ function App() {
   this.gui.add(this.parameterValues, 'foo', 0, 100);
 
   this.dom = {
+    viewer: document.getElementById('viewer'),
     pluginInput: document.getElementById('plugin-input'),
     effectIndex: document.getElementById('effect-index'),
     parametersBlock: document.getElementById('parameters'),
@@ -42,7 +43,7 @@ App.prototype.onDomLoaded = function() {
 
   const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setSize(window.innerWidth / 2, window.innerHeight / 2);
-  document.body.appendChild(renderer.domElement);
+  this.dom.viewer.appendChild(renderer.domElement);
 
   const controls = new THREE.OrbitControls( camera, renderer.domElement );
 
