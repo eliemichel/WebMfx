@@ -49,5 +49,13 @@ set_target_properties(WebMfxHost PROPERTIES SUFFIX ".html")
 
 # Additional
 
-file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/js/ DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/js/)
-# mklink ${CMAKE_CURRENT_BINARY_DIR}/css ${CMAKE_CURRENT_SOURCE_DIR}/css
+execute_process(
+	COMMAND ${CMAKE_COMMAND} -E create_symlink
+	${CMAKE_CURRENT_BINARY_DIR}/css
+	${CMAKE_CURRENT_SOURCE_DIR}/css
+)
+execute_process(
+	COMMAND ${CMAKE_COMMAND} -E create_symlink
+	${CMAKE_CURRENT_BINARY_DIR}/js
+	${CMAKE_CURRENT_SOURCE_DIR}/js
+)

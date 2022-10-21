@@ -216,6 +216,7 @@ App.prototype.updateSpreadsheet = function(pointCount, cornerCount, faceCount, p
   const row = document.createElement('tr');
   let cell = document.createElement('th');
   cell.innerText = "#";
+  cell.className = "spreadsheet-active";
   row.appendChild(cell);
   cell = document.createElement('th');
   cell.colSpan = "3";
@@ -231,20 +232,27 @@ App.prototype.updateSpreadsheet = function(pointCount, cornerCount, faceCount, p
     cellContent = document.createElement('div');
     cellContent.className = "content";
     cellContent.innerText = i;
-    cell.appendChild(cellContent);
+    cellContentWrapper = document.createElement('div');
+    cellContentWrapper.className = "content-wrapper";
+    cellContentWrapper.appendChild(cellContent);
+    cell.appendChild(cellContentWrapper);
     row.appendChild(cell);
     for (let k = 0 ; k < 3 ; ++k) {
       cell = document.createElement('td');
       cellContent = document.createElement('div');
       cellContent.className = "content";
       cellContent.innerText = pointPositionData[3 * i + k];
-      cell.appendChild(cellContent);
+      cellContentWrapper = document.createElement('div');
+      cellContentWrapper.className = "content-wrapper";
+      cellContentWrapper.appendChild(cellContent);
+      cell.appendChild(cellContentWrapper);
       row.appendChild(cell);
     }
     body.appendChild(row);
   }
 
   this.dom.outputMeshSpreadsheet.replaceChildren(header, body);
+  setupSpreadsheet(this.dom.outputMeshSpreadsheet);
 }
 
 App.prototype.updateMesh = function(point_count, corner_count, face_count, point_position_data, corner_point_data, face_size_data) {

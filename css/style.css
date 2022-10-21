@@ -3,12 +3,8 @@
 }
 .spreadsheet {
 	text-align: center;
-}
-.spreadsheet {
 	font-family: monospace;
-}
 
-.spreadsheet {
 	border-collapse: separate;
 	border-spacing: 0;
 	background-color: #eee;
@@ -18,13 +14,37 @@
 	border-top:  1px solid rgba(255, 255, 255, 0.6);
 }
 
+.spreadsheet.sized {
+	overflow-x: visible;
+	overflow-y: scroll;
+}
+.spreadsheet.sized td {
+	max-width: 0;
+}
+
 .spreadsheet th, .spreadsheet td {
+	border-top: 1px solid rgba(0, 0, 0, 0.2);
+	border-bottom: 1px solid rgba(255, 255, 255, 0.6);
+	padding: 0;
+	margin: 0;
+	overflow-x: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.spreadsheet th .content-wrapper, .spreadsheet td .content-wrapper {
 	cursor: col-resize;
 	border-left:  1px solid rgba(0, 0, 0, 0.2);
 	border-right:  1px solid rgba(255, 255, 255, 0.6);
-	border-top:  1px solid rgba(0, 0, 0, 0.2);
-	border-bottom:  1px solid rgba(255, 255, 255, 0.6);
-	border: none;
-	padding: 0 3px;
-	margin: 0;
+	padding: 0 2px;
+}
+
+.spreadsheet th .content, .spreadsheet td .content {
+	cursor: default;
+	padding: 0 2px;
+	overflow-x: hidden;
+}
+
+.spreadsheet th.spreadsheet-active {
+	text-decoration: underline;
 }
